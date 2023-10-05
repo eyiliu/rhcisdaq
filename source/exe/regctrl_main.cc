@@ -97,7 +97,7 @@ int main(int argc, char **argv){
   }
 
   ///////////////////////
-  std::unique_ptr<altel::Layer> layer;
+  std::unique_ptr<Layer> layer;
   std::unique_ptr<TcpServer> tcpServer;
   std::unique_ptr<DummyDump> dummyDump;
   std::unique_ptr<TcpClientConn> tcpClient;
@@ -151,7 +151,7 @@ int main(int argc, char **argv){
       dummyDump.reset();
       tcpClient.reset();
       tcpServer.reset();
-      layer.reset(new altel::Layer());
+      layer.reset(new Layer());
       layer->fw_init();
       printf("done\n");
     }
@@ -203,7 +203,7 @@ int main(int argc, char **argv){
       std::string name = mt[3].str();
       if(layer && layer->m_fw){
         uint64_t value = std::stoull(mt[5].str(), 0, mt[4].str().empty()?10:16);
-        layer->m_fw->SetAlpideRegister(name, value);
+        layer->m_fw->SetCisRegister(name, value);
       }
     }
     else if ( std::regex_match(result, std::regex("\\s*(sensor)\\s+(get)\\s+(\\w+)\\s*")) ){
@@ -211,7 +211,7 @@ int main(int argc, char **argv){
       std::regex_match(result, mt, std::regex("\\s*(sensor)\\s+(get)\\s+(\\w+)\\s*"));
       std::string name = mt[3].str();
       if(layer && layer->m_fw){
-        uint64_t value = layer->m_fw->GetAlpideRegister(name);
+        uint64_t value = layer->m_fw->GetCisRegister(name);
         fprintf(stderr, "%s = %llu, %#llx\n", name.c_str(), value, value);
       }
     }
@@ -263,7 +263,7 @@ struct DummyDump{
   DummyDump() = delete;
   DummyDump(const DummyDump&) =delete;
   DummyDump& operator=(const DummyDump&) =delete;
-  DummyDump(altel::Layer *layer){
+  DummyDump(Layer *layer){
     isRunning = true;
     fut = std::async(std::launch::async, &DummyDump::AsyncDump, &isRunning, layer);
   }
@@ -274,7 +274,7 @@ struct DummyDump{
     }
   }
 
-  static uint64_t AsyncDump(bool* isDumping, altel::Layer* layer){
+  static uint64_t AsyncDump(bool* isDumping, Layer* layer){
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
     // std::string now_str = TimeNowString("%y%m%d%H%M%S");

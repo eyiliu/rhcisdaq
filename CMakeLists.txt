@@ -68,7 +68,7 @@ find_package(Threads REQUIRED)
 
 ## external
 # add_subdirectory(external)
-# add_subdirectory(source)
+add_subdirectory(source)
 add_subdirectory(module)
 # add_subdirectory(dma_checker)
 
@@ -82,7 +82,7 @@ install(FILES
   ${PROJECT_BINARY_DIR}/cmake_install/${PROJECT_NAME}ConfigVersion.cmake
   DESTINATION cmake COMPONENT devel)
 
-install(EXPORT ${PROJECT_NAME}Targets DESTINATION cmake)
+# install(EXPORT ${PROJECT_NAME}Targets DESTINATION cmake)
 
 # build-tree
 set(CONF_LIBRARIES "")

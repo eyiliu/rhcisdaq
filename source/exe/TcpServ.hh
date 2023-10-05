@@ -21,7 +21,7 @@ struct TcpServerConn{
   TcpServerConn() = delete;
   TcpServerConn(const TcpServerConn&) =delete;
   TcpServerConn& operator=(const TcpServerConn&) =delete;
-  TcpServerConn(altel::Layer* layer, int sockfd_conn, sockaddr_in sockaddr_conn_){
+  TcpServerConn(Layer* layer, int sockfd_conn, sockaddr_in sockaddr_conn_){
     sockaddr_conn = sockaddr_conn_;
     isRunning = true;
     fut = std::async(std::launch::async, &TcpServerConn::AsyncTcpConn, &isRunning, layer, sockfd_conn);
@@ -35,7 +35,7 @@ struct TcpServerConn{
     printf("TcpServerConn deconstruction done\n");
   }
 
-  static uint64_t AsyncTcpConn(bool* isTcpConn, altel::Layer* layer, int sockfd){
+  static uint64_t AsyncTcpConn(bool* isTcpConn, Layer* layer, int sockfd){
     printf("AsyncTcpServerConn is started\n");
     uint64_t n_ev = 0;
     *isTcpConn = true;
@@ -85,7 +85,7 @@ struct TcpServer{
   TcpServer(const TcpServer&) =delete;
   TcpServer& operator=(const TcpServer&) =delete;
 
-  TcpServer(altel::Layer* layer, short int port){
+  TcpServer(Layer* layer, short int port){
     isRunning = true;
     fut = std::async(std::launch::async, &TcpServer::AsyncTcpServer, &isRunning, layer, port);
   }
@@ -98,7 +98,7 @@ struct TcpServer{
     printf("TcpServer deconstruction done\n");
   }
 
-  static uint64_t AsyncTcpServer(bool* isTcpServ, altel::Layer* layer, short int port){
+  static uint64_t AsyncTcpServer(bool* isTcpServ, Layer* layer, short int port){
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
     // std::string now_str = TimeNowString("%y%m%d%H%M%S");
@@ -212,7 +212,7 @@ struct TcpClientConn{
       std::string raw_pack = readPack(sockfd, std::chrono::milliseconds(100));
       if(!raw_pack.empty()){
         printf("Client got raw pack: %s\n", StringToHexString(raw_pack).c_str());
-        auto df =  std::make_shared<altel::DataFrame>(std::move(raw_pack));
+        auto df =  std::make_shared<DataFrame>(std::move(raw_pack));
       }
     }
 

@@ -1,9 +1,9 @@
-build/*
-install/*
+build*/*
+install*/*
 temp/*
 backup/*
-BUILD/*
-INSTALL/*
+BUILD*/*
+INSTALL*/*
 TEMP/*
 BACKUP/*
 

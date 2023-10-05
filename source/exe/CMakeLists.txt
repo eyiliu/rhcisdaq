@@ -1,6 +1,6 @@
 
 add_executable(regctrl_main regctrl_main.cc)
-target_link_libraries(regctrl_main PRIVATE altel-rbcp mycommon)
+target_link_libraries(regctrl_main PRIVATE datactrl-fe mycommon)
 
 add_executable(dmarx_dump dmarx_dump.cc)
 

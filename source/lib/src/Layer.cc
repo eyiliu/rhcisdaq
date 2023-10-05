@@ -40,7 +40,7 @@ void Layer::fw_start(){
   // m_fw->SetCisRegister("CMU_DMU_CONF", 0x70);// token
   // m_fw->SetCisRegister("CHIP_MODE", 0x3d); //trigger MODE
   // m_fw->SetFirmwareRegister("FIRMWARE_MODE", 1); //run, fw forward trigger
-  info_print( " fw start %s\n", m_fw->DeviceUrl().c_str());
+  info_print( " fw start \n");
 }
 
 
@@ -49,12 +49,12 @@ void Layer::fw_stop(){
   // m_fw->SetFirmwareRegister("FIRMWARE_MODE", 0); // stop trigger, fw goes into configure mode 
   // m_fw->SetCisRegister("CHIP_MODE", 0x3c); // sensor goes to configure mode
 
-  info_print(" fw stop  %s\n", m_fw->DeviceUrl().c_str());
+  info_print(" fw stop \n");
 }
 
 void Layer::fw_conf(){
   if(!m_fw) return;
-  info_print( " fw conf %s\n", m_fw->DeviceUrl().c_str());
+  info_print( " fw conf \n");
 
  
   if(!m_jsdoc_conf.HasMember("firmware")){
@@ -89,7 +89,7 @@ void Layer::fw_init(){
   //
   //end of user init
 
-  info_print("fw init  %s\n", m_fw->DeviceUrl().c_str());
+  info_print("fw init \n");
 }
 
 void Layer::rd_start(){
@@ -125,7 +125,7 @@ uint64_t Layer::AsyncPushBack(){ // IMPROVE IT AS A RING
   uint32_t flag_wait_first_event = true;
 
   m_rd->Open();
-  info_print(" rd start  %s\n", m_rd->DeviceUrl().c_str());
+  info_print(" rd start  \n");
   m_is_async_reading = true;
 
   m_st_n_tg_ev_now =0;
@@ -193,7 +193,7 @@ uint64_t Layer::AsyncPushBack(){ // IMPROVE IT AS A RING
     tg_expected ++;
   }
   m_rd->Close();
-  info_print(" rd stop  %s\n", m_rd->DeviceUrl().c_str());
+  info_print(" rd stop  \n");
   return m_count_ring_write;
 }
 

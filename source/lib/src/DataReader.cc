@@ -15,7 +15,7 @@
 
 
 #define HEADER_BYTE  (0x5a)
-#define FOOTER_BYTE  (0xa5)
+// #define FOOTER_BYTE  (0xa5)
 
 
 namespace{
@@ -40,22 +40,6 @@ namespace{
 
 
 }
-
-
-  size_t dumpBrokenData(int fd_rx){
-    size_t len_total = 0;
-    uint32_t buf_word;
-    char * p_buf = reinterpret_cast<char*>(&buf_word);
-
-    while(read(fd_rx, p_buf, 4)>0){
-      len_total ++;
-      if(buf_word == 0xa5 || buf_word>>8 == 0xa5 || buf_word>>16 == 0xa5 || buf_word>>24 == 0xa5){
-	// reach pack end
-	return len_total;
-      }
-    }
-    return len_total;
-  }
 
 
 DataReader::~DataReader(){
@@ -107,63 +91,41 @@ std::vector<DataFrameSP> DataReader::Read(size_t size_max_pkg,
 }
 
 
-std::string readPack(int fd_rx, const std::chrono::milliseconds &timeout_idel){ //timeout_read_interval
+MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout_idel, const std::chrono::milliseconds &timeout_idel){ //timeout_read_interval
   // std::fprintf(stderr, "-");
-  size_t size_buf_min = 16;
-  size_t size_buf = size_buf_min;
-  std::string buf(size_buf, 0);
-  size_t size_filled = 0;
-  std::chrono::system_clock::time_point tp_timeout_idel;
+  MeasRaw meas;
+  size_t size_buf = sizeof(meas);
+  size_t size_filled = 0;  
   bool can_time_out = false;
   int read_len_real = 0;
   while(size_filled < size_buf){
-    read_len_real = read(fd_rx, &buf[size_filled], size_buf-size_filled);
+    read_len_real = read(fd_rx, &(meas.data.raw8[size_filled]), size_buf-size_filled);
     if(read_len_real>0){
       // debug_print(">>>read  %d Bytes \n", read_len_real);
       size_filled += read_len_real;
-      can_time_out = false;
-      if(size_buf == size_buf_min  && size_filled >= size_buf_min){
-	uint8_t header_byte =  buf.front();
-	uint32_t w1 = *reinterpret_cast<const uint32_t*>(buf.data()+4);
-	// uint8_t rsv = (w1>>20) & 0xf;
-
-	uint32_t size_payload = (w1 & 0xfffff);
-	// std::cout<<" size_payload "<< size_payload<<std::endl;
-	if(header_byte != HEADER_BYTE){
-	  std::fprintf(stderr, "ERROR<%s>: wrong header of data frame, skip\n", __func__);
-	  std::fprintf(stderr, "RawData_TCP_RX:\n%s\n", StringToHexString(buf).c_str());
-	  std::fprintf(stderr, "<");
-	  //TODO: skip broken data
-	  dumpBrokenData(fd_rx);
-	  size_buf = size_buf_min;
-	  size_filled = 0;
-	  can_time_out = false;
-	  continue;
-	}
-	size_buf += size_payload;
-	size_buf &= -4; // aligment 32bits, tail 32bits might be cutted.
-	if(size_buf > 300){
-	  size_buf = 300;
-	}
-	buf.resize(size_buf);
+      can_time_out = false; // with data incomming, timeout counter is reset and stopped. 
+      if(meas.head() != HEADER_BYTE){
+	std::fprintf(stderr, "ERROR<%s>: wrong header of dataword, skip\n", __func__);
+	// std::fprintf(stderr, "RawData_TCP_RX:\n%s\n", StringToHexString(buf).c_str());
+	MeasRaw::dropbyte(meas); //shift and remove a byte  
+	size_filled -= 1;
+	continue;
       }
     }
     else if (read_len_real== 0 || (read_len_real < 0 && errno == EAGAIN)){ // empty readback, read again
-      if(!can_time_out){
+      if(!can_time_out){ // first hit here, if timeout counter was not yet started.
 	can_time_out = true;
-	tp_timeout_idel = std::chrono::system_clock::now() + timeout_idel;
+	tp_timeout_idel = std::chrono::system_clock::now() + timeout_idel; // start timeout counter
       }
       else{
-	if(std::chrono::system_clock::now() > tp_timeout_idel){
+	if(std::chrono::system_clock::now() > tp_timeout_idel){ // timeout overflow reached
 	  if(size_filled == 0){
 	    // debug_print("INFO<%s>: no data receving.\n",  __func__);
-	    return std::string();
+	    return MeasRaw(0);
 	  }
-	  //TODO: keep remain data, nothrow
 	  std::fprintf(stderr, "ERROR<%s>: timeout error of incomplete data reading \n", __func__ );
 	  std::fprintf(stderr, "=");
-	  return std::string();
-	  // throw;
+	  return MeasRaw(0);
 	}
       }
       continue;
@@ -173,28 +135,24 @@ std::string readPack(int fd_rx, const std::chrono::milliseconds &timeout_idel){ 
       throw;
     }
   }
-  uint32_t w_end = *reinterpret_cast<const uint32_t*>(&buf.back()-3);
-
-  if(w_end != FOOTER_BYTE && (w_end>>8)!= FOOTER_BYTE && (w_end>>16)!= FOOTER_BYTE && (w_end>>24)!= FOOTER_BYTE ){
-    std::fprintf(stderr, "ERROR<%s>:  wrong footer of data frame\n", __func__);
-    std::fprintf(stderr, ">");
-    std::fprintf(stderr, "dumpping data Hex:\n%s\n", StringToHexString(buf).c_str());
-    return std::string();
-    //throw;
-  }
-  // std::fprintf(stdout, "dumpping data Hex:\n%s\n", StringToHexString(buf).c_str());
-  return buf;
+  return meas;
 }
 
+
+
 DataFrameSP DataReader::Read(const std::chrono::milliseconds &timeout_idle){ //timeout_read_interval
-  auto buf = readPack(m_fd, timeout_idle);
-  if(buf.empty()){
+  std::vector<MeasRaw> meas_col;
+  auto meas = readMeasRaw(m_fd, tp_timeout_idel, timeout_idle);
+  if(meas==0){
     return nullptr;
   }
+  meas_col.push_back(meas);
+
   // auto df = std::make_shared<DataFrame>();
   // df->m_raw=std::move(buf);
   // return df;
-  return std::make_shared<DataFrame>(std::move(buf));
+  
+  return std::make_shared<DataFrame>(std::move(meas_col));
 }
 
 std::string DataReader::LoadFileToString(const std::string& path){

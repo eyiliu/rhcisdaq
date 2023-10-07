@@ -3,6 +3,10 @@
 #include <iostream>
 
 
+
+
+//head [63:56] 
+
 #ifndef DEBUG_PRINT
 #define DEBUG_PRINT 0
 #endif
@@ -40,12 +44,28 @@ DataFrame::DataFrame(const rapidjson::GenericValue<
 }
 
 
+DataFrame::DataFrame(std::vector<MeasRaw>&& meas_col)
+  :m_meas_col(std::move(meas_col)){
+  
+  fromMeasRaws(m_meas_col);
+  
+}
+
+
 //TODO
 void DataFrame::fromRaw(const std::string &raw){
     const uint8_t* p_raw_beg = reinterpret_cast<const uint8_t *>(raw.data());
     const uint8_t* p_raw = p_raw_beg;
 
+    
 }
+
+
+void DataFrame::fromMeasRaws(const std::vector<MeasRaw>& meas_col){
+  
+  
+}
+
 
 /*
 void DataFrame::fromRaw(const std::string &raw){

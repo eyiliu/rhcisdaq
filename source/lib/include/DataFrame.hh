@@ -9,22 +9,68 @@
 #include "myrapidjson.h"
 
 
+struct MeasRaw;
+
+struct MeasRaw{
+  union {
+    uint64_t raw64;
+    uint32_t raw32[2];
+    uint16_t raw16[4];
+    unsigned char raw8[8];
+  } data{0};
+  MeasRaw()
+    :data{ .raw64 = 0 }{};
+  
+  MeasRaw(uint64_t h64)
+    :data{ .raw64 = h64 }{};
+  // MeasRaw(unsigned char head, unsigned char brow, unsigned char col1, unsigned char col2, uint16_t adc1, uint16_t adc2)
+  //   :data{ .raw16[0]=adc2, .raw16[1]=adc1, .raw8[4]=col2, .raw8[5]=col1, .raw8[6]=brow, .raw8[7]=head}{};
+  
+  inline bool operator==(const MeasRaw &rh) const{
+    return data.raw64 == rh.data.raw64;
+  }
+
+  inline bool operator==(const uint64_t &rh) const{
+    return data.raw64 == rh;
+  }
+
+  
+  inline bool operator<(const MeasRaw &rh) const{
+    return data.raw64 < rh.data.raw64;
+  }
+
+  inline const uint64_t& raw64() const  {return data.raw64;}
+  inline const unsigned char& head() const  {return data.raw8[7];}
+  inline const unsigned char& brow() const  {return data.raw8[6];}
+  inline const unsigned char& col1() const  {return data.raw8[5];}
+  inline const unsigned char& col2() const  {return data.raw8[4];}
+  inline const uint16_t& adc1() const  {return data.raw16[1];}
+  inline const uint16_t& adc2() const  {return data.raw16[0];}
+  inline static void dropbyte(MeasRaw meas){
+    meas.data.raw64>>8;
+  }
+};
+
+
+
 class DataFrame;
 using DataFrameSP = std::shared_ptr<DataFrame>;
+
 
 class DataFrame {
 public:
   DataFrame(const std::string& raw);
   DataFrame(std::string&& raw);
+  DataFrame(std::vector<MeasRaw>&& meas_col);
+
   DataFrame(const rapidjson::Value &js);
   DataFrame(const rapidjson::GenericValue<rapidjson::UTF8<>, rapidjson::CrtAllocator> &js);
   DataFrame(){};
-
   
-  inline void SetTrigger(uint64_t v){m_trigger = v;};
-  inline uint64_t GetTrigger(){return m_trigger;};
-  inline uint64_t GetCounter(){return m_counter;}
-  inline uint64_t GetExtension(){return m_extension;}
+  // inline void SetTrigger(uint64_t v){m_trigger = v;};
+  // inline uint64_t GetTrigger(){return m_trigger;};
+  // inline uint64_t GetCounter(){return m_counter;}
+  // inline uint64_t GetExtension(){return m_extension;}
   
   void Print(std::ostream& os, size_t ws = 0) const;
 
@@ -36,11 +82,16 @@ public:
 
   void fromRaw(const std::string &raw);
   
-  static const uint16_t s_version{4};
+  void fromMeasRaws(const std::vector<MeasRaw> &meas_col);
+
+
+  std::vector<MeasRaw> m_meas_col;
+  
+  // static const uint16_t s_version{4};
   std::string m_raw;
-  uint64_t m_counter{0};
-  uint64_t m_extension{0};
-  uint64_t m_trigger{0};
+  // uint64_t m_counter{0};
+  // uint64_t m_extension{0};
+  // uint64_t m_trigger{0};
 };
 
 

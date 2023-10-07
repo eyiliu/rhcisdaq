@@ -149,11 +149,13 @@ uint64_t Layer::AsyncPushBack(){ // IMPROVE IT AS A RING
       continue;
     }
 
-    uint16_t tg_l16 = 0xffff & df->GetCounter();
-
+    // uint16_t tg_l16 = 0xffff & df->GetCounter();
+    uint16_t tg_l16 = 0;
+    
     if(flag_wait_first_event){
       flag_wait_first_event = false;
-      m_extension = df->GetExtension();
+      // m_extension = df->GetExtension();
+      m_extension = 0;
       tg_expected = tg_l16;
       m_st_n_tg_ev_begin = tg_expected;
       debug_print("set first event TID #%5u",  tg_expected);
@@ -185,7 +187,7 @@ uint64_t Layer::AsyncPushBack(){ // IMPROVE IT AS A RING
       }
     }
     //TODO: fix tlu firmware, mismatch between modes AIDA start at 1, EUDET start at 0
-    df->SetTrigger(tg_expected);
+    // df->SetTrigger(tg_expected);
     m_st_n_tg_ev_now = tg_expected;
 
     m_vec_ring_ev[next_p_ring_write] = df;

@@ -18,6 +18,7 @@ public:
   std::vector<DataFrameSP> Read(size_t size_max_pkg,
                                 const std::chrono::milliseconds &timeout_idle,
                                 const std::chrono::milliseconds &timeout_total);
+
   bool Open();
   void Close();
 
@@ -25,6 +26,7 @@ public:
 
 private:
   int m_fd{0};
+  std::chrono::system_clock::time_point tp_timeout_idel;
   std::string m_file_path;
   JsonDocument m_jsdoc_conf;
 };

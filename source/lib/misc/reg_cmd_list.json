@@ -1,388 +1,68 @@
 {
-    "CHIP_REG_LIST":[
-	{
-	    "name":"CHIP_CMD",
-	    "address":"0x0000",
-	    "bytes":2,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x0000",
-	    "description":"Command Register"
-	},
-	{
-	    "name":"ITHR",
-	    "address":"0x060e",
-	    "bytes":2,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x0033",
-            "nominal":51,
-	    "description":"ITHR, threshold"
-	},
-	{
-	    "name":"ADC_CTRL",
-	    "address":"0x0610",
-	    "bytes":2,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x0400",
-	    "description":"ADC Control Register"
-	},
-	{
-	    "name":"ADC_DAC_INPUT",
-	    "address":"0x0611",
-	    "bytes":2,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x0000",
-	    "description":"ADC DAC input value"
-	},
-	{
-	    "name":"ADC_CALIB",
-	    "address":"0x0612",
-	    "bytes":2,
-	    "words":1,
-	    "read":true,
-	    "write":false,
-	    "description":"ADC Calibration Value Register"
-	},
-	{
-	    "name":"TEST_CTRL",
-	    "address":"0x0701",
-	    "bytes":2,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x0000",
-	    "description":"Test Control Register"
-	}
-    ],
-
+    "FIRMWARE_CTRL_PROTOCOL":{
+	"device_file":"/dev/mem",
+	"address_base":"0x43c00000"
+	"memory_size":"0x0100"
+    },
     
-    "CHIP_CMD_LIST":[
-	{
-	    "name":"GRST",
-	    "value":"0x00d2",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Chip global reset"
-	},
-	{
-	    "name":"PRST",
-	    "bytes":2,
-	    "words":1,
-	    "value":"0x00e4",
-	    "description":"Pixel matrix RESET, The PULSE_EN and MASK_EN latches are not affected by PRST"
-	},
-	{
-	    "name":"PULSE",
-	    "value":"0x0078",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Pixel matrix PULSE"
-	},
-	{
-	    "name":"BCRST",
-	    "value":"0x0036",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Bunch Counter reset"
-	},
-	{
-	    "name":"RORST",
-	    "value":"0x0063",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Readout (RRU/TRU/DMU) reset. This command is mandatory to commit the Initial Token bit and activates the driving of the local bus by the chip with the token."
-	},
-	{
-	    "name":"DEBUG",
-	    "value":"0x00aa",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Store snapshot into debug registers"
-	},
-	{
-	    "name":"TRIGGER_B1",
-	    "value":"0x00b1",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Trigger command b1"
-	},
-	{
-	    "name":"TRIGGER_55",
-	    "value":"0x0055",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Trigger command 55"
-	},
-	{
-	    "name":"TRIGGER_C9",
-	    "value":"0x00c9",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Trigger command c9"
-	},
-	{
-	    "name":"TRIGGER_2D",
-	    "value":"0x002d",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Trigger command 2d"
-	},
-	{
-	    "name":"WROP",
-	    "value":"0x009c",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Start Unicast or Multicast Write"
-	},
-	{
-	    "name":"RDOP",
-	    "value":"0x004e",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Start Unicast Read"
-	},
-	{
-	    "name":"CMU_CLEAR_ERR",
-	    "value":"0xff00",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Clear CMU error flags"
-	},
-	{
-	    "name":"FIFOTEST",
-	    "value":"0xff01",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Starts regions memory test"
-	},
-	{
-	    "name":"LOADOBDEFCFG",
-	    "value":"0xff02",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Loads default configuration for the OB Module"
-	},
-	{
-	    "name":"XOFF",
-	    "value":"0xff10",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Stops sending data off-chip"
-	},
-	{
-	    "name":"XON",
-	    "value":"0xff11",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Resume data sending"
-	},
-	{
-	    "name":"ADCMEASURE",
-	    "value":"0xff20",
-	    "bytes":2,
-	    "words":1,
-	    "description":"Start ADC measure"
-	}
-    ],
-
-    
-    "FIRMWARE_CMD_LIST":[
-	{
-	    "name":"WRITE",
-	    "value":"0x9c",
-	    "bytes":1,
-	    "words":1,
-	    "description":"Write data in Data Wrote to sensor register at sensor Register Address"
-	},
-	{
-	    "name":"READ",
-	    "value":"0x4e",
-	    "bytes":1,
-	    "words":1,
-	    "description":"Read data from sensor register at sensor Register Address and store in Data Read"
-	}
-    ],
-
     "FIRMWARE_REG_LIST":[
+	
 	{
-	    "name":"FIRMWARE_CMD",
-	    "address":"0x43c00044",
+	    "name":"SCAN_ONCE",
+	    "address":"0x0000",
 	    "bytes":1,
-	    "words":1,
 	    "read":false,
 	    "write":true,
-	    "reset":"0x00",
-	    "description":"Command Register"
+	    "description":""
 	},
 	{
-	    "name":"ADDR_CHIP_REG",
-	    "address":[
-		"ADDR_CHIP_REG_L",
-		"ADDR_CHIP_REG_H"
-	    ],
+	    "name":"SCAN_MODE",
+	    "address":"0x0004",
+	    "bytes":1,
+	    "read":true,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"EXPOSURE_NCLK",
+	    "address":"0x0008",
+	    "bytes":1,
+	    "read":true,
+	    "write":true,
+	    "reset":"0x00",
+	    "description":""
+	},
+	{
+	    "name":"REGION_SELECT",
+	    "address":"0x000c",
+	    "bytes":1,
+	    "read":true,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"DAC_SELECT",
+	    "address":" 0x0010",
+	    "bytes":1,
+	    "read":true,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"DAC_VOLT_VALUE",
+	    "address":" 0x0014",
 	    "bytes":2,
-	    "words":2,
-	    "endian":"LE",
 	    "read":true,
 	    "write":true,
-	    "description":"sensor Register Address to Read or Write, 0x43c00008"
+	    "description":""
 	},
 	{
-	    "name":"ADDR_CHIP_REG_L",
-	    "address":"0x43c00008",
+	    "name":"DAC_VOLT_SET_NEW",
+	    "address":"0x0018",
 	    "bytes":1,
-	    "words":1,
-	    "read":true,
+	    "read":false,
 	    "write":true,
-	    "reset":"0x00",
-	    "description":"sensor Register Address to Read or Write, [7:0]"
-	},
-	{
-	    "name":"ADDR_CHIP_REG_H",
-	    "address":"0x43c00009",
-	    "bytes":1,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x00",
-	    "description":"sensor Register Address to Read or Write, [15:8]"
-	},
-	{
-	    "name":"DEVICE_ID",
-	    "address":"0x43c0000c",
-	    "bytes":1,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x00",
-	    "description":"Device ID, layer ID"
-	},
-	{
-	    "name":"DATA_WRITE",
-	    "address":[
-		    "DATA_WRITE_L",
-		    "DATA_WRITE_H"
-	    ],
-	    "bytes":2,
-	    "words":2,
-	    "endian":"LE",
-	    "read":true,
-	    "write":true,
-	    "description":"Data Wrote to sensor Register 0x43c00010"
-	},
-	{
-	    "name":"DATA_WRITE_L",
-	    "address":" 0x43c00010",
-	    "bytes":1,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x00",
-	    "description":"Data Wrote to sensor Register [7:0] "
-	},
-	{
-	    "name":"DATA_WRITE_H",
-	    "address":" 0x43c00011",
-	    "bytes":1,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x00",
-	    "description":"Data Wrote to sensor Register [15:8] "
-	},
-	{
-	    "name":"BROADCAST_OPCODE",
-	    "address":"0x43c00018",
-	    "bytes":1,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x00",
-	    "description":"the OPCODE to broadcast to the sensor DCTRL bus"
-	},
-	{
-	    "name":"TRIG_DELAY",
-	    "address":[
-		"TRIG_DELAY_L",
-		"TRIG_DELAY_H"
-	    ],
-	    "bytes":2,
-	    "words":2,
-	    "endian":"LE",
-	    "read":true,
-	    "write":true,
-	    "description":"Controls the delay from external trigger to DAQ sending trigger to sensor. Value n gives a delay of n clock cycles (minimum 0 and maximum 65535 cycles i.e. from 0 to ~1638 us assuming a clock period of 25 ns), 0x43c0001c"
-	},
-	{
-	    "name":"TRIG_DELAY_L",
-	    "address":"0x43c0001c",
-	    "bytes":1,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x00",
-	    "description":"Trigger Delay in Step of 25 ns[7:0]"
-	},
-	{
-	    "name":"TRIG_DELAY_H",
-	    "address":"0x43c0001d",
-	    "bytes":1,
-	    "words":1,
-	    "read":true,
-	    "write":true,
-	    "reset":"0x00",
-	    "description":"Trigger Delay in Step of 25 ns[15:8]"
-	},
-	{
-	    "name":"COUNT_READ",
-	    "address":"0x43c00034",
-	    "bytes":1,
-	    "words":1,
-	    "read":true,
-	    "write":false,
-	    "reset":"0x00",
-	    "description":"counter of succeed sensor register reading process 0x43c00034"
-	},
-	{
-	    "name":"DATA_READ",
-	    "address":[
-		    "DATA_READ_L",
-		    "DATA_READ_H"
-	    ],
-	    "bytes":2,
-	    "words":2,
-	    "endian":"LE",
-	    "read":true,
-	    "write":false,
-	    "description":"Data Read from Register  0x43c00038"
-	},
-	{
-	    "name":"DATA_READ_L",
-	    "address":"0x43c00038",
-	    "bytes":1,
-	    "words":1,
-	    "read":true,
-	    "write":false,
-	    "reset":"0x00",
-	    "description":"Data Read from  Register[7:0] "
-	},
-	{
-	    "name":"DATA_READ_H",
-	    "address":"0x43c00039",
-	    "bytes":1,
-	    "words":1,
-	    "read":true,
-	    "write":false,
-	    "reset":"0x00",
-	    "description":"Data Read from Register[15:8] "
+	    "description":""
 	}
-
     ]
 }

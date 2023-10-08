@@ -14,17 +14,17 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-// #include "TelEvent.hpp"
-
 #include "getopt.h"
+
+//8'b0101_0101
+#define HEADER_BYTE  (0b01010101)
+
 
 using std::uint8_t;
 using std::uint16_t;
 using std::uint32_t;
 using std::size_t;
 
-#define HEADER_BYTE 0x5a
-#define FOOTER_BYTE 0xa5
 
 #ifndef DEBUG_PRINT
 #define DEBUG_PRINT 0
@@ -53,27 +53,25 @@ uint64_t AsyncWatchDog(){
     double sec_period = dur_period_sec.count();
     double sec_accu = dur_accu_sec.count();
 
-    size_t st_unexpectedN = ga_unexpectedN;
-    size_t st_dataFrameN = ga_dataFrameN;
-    uint16_t st_lastTriggerId= ga_lastTriggerId;
+    // size_t st_unexpectedN = ga_unexpectedN;
+    // size_t st_dataFrameN = ga_dataFrameN;
+    // uint16_t st_lastTriggerId= ga_lastTriggerId;
     
-    double st_hz_pack_accu = st_dataFrameN / sec_accu;
-    double st_hz_pack_period = (st_dataFrameN-st_old_dataFrameN) / sec_period;
+    // double st_hz_pack_accu = st_dataFrameN / sec_accu;
+    // double st_hz_pack_period = (st_dataFrameN-st_old_dataFrameN) / sec_period;
 
-    tp_old = tp_now;
-    st_old_dataFrameN= st_dataFrameN;
-    st_old_unexpectedN = st_unexpectedN;
-    std::fprintf(stdout, "ev_accu(%8.2f hz) ev_trans(%8.2f hz) last_id(%8.2hu)\r",st_hz_pack_accu, st_hz_pack_period, st_lastTriggerId);
-    std::fflush(stdout);
+    // tp_old = tp_now;
+    // st_old_dataFrameN= st_dataFrameN;
+    // st_old_unexpectedN = st_unexpectedN;
+    // std::fprintf(stdout, "ev_accu(%8.2f hz) ev_trans(%8.2f hz) last_id(%8.2hu)\r",st_hz_pack_accu, st_hz_pack_period, st_lastTriggerId);
+    // std::fflush(stdout);
   }
-  std::fprintf(stdout, "\n\n");
+  // std::fprintf(stdout, "\n\n");
   return 0;
 }
 
 
-
 namespace{
-
   std::string binToHexString(const char *bin, int len){
     constexpr char hexmap[] = {'0', '1', '2', '3', '4', '5', '6', '7',
                                '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
@@ -137,239 +135,98 @@ namespace{
     return hexToBinString(hex.data(), hex.size());
   }
 
-  size_t dumpBrokenData(int fd_rx){
-    size_t len_total = 0;
-    uint32_t buf_word;
-    char * p_buf = reinterpret_cast<char*>(&buf_word);
 
-    while(read(fd_rx, p_buf, 4)>0){
-      len_total ++;
-      if(buf_word == 0xa5 || buf_word>>8 == 0xa5 || buf_word>>16 == 0xa5 || buf_word>>24 == 0xa5){
-	// reach pack end
-	return len_total;
+
+  struct MeasRaw;
+
+  struct MeasRaw{
+    union {
+      uint64_t raw64;
+      uint32_t raw32[2];
+      uint16_t raw16[4];
+      unsigned char raw8[8];
+    } data{0};
+    MeasRaw()
+      :data{ .raw64 = 0 }{};
+  
+    MeasRaw(uint64_t h64)
+      :data{ .raw64 = h64 }{};
+    // MeasRaw(unsigned char head, unsigned char brow, unsigned char col1, unsigned char col2, uint16_t adc1, uint16_t adc2)
+    //   :data{ .raw16[0]=adc2, .raw16[1]=adc1, .raw8[4]=col2, .raw8[5]=col1, .raw8[6]=brow, .raw8[7]=head}{};
+  
+    inline bool operator==(const MeasRaw &rh) const{
+      return data.raw64 == rh.data.raw64;
+    }
+
+    inline bool operator==(const uint64_t &rh) const{
+      return data.raw64 == rh;
+    }
+  
+    inline bool operator<(const MeasRaw &rh) const{
+      return data.raw64 < rh.data.raw64;
+    }
+
+    inline const uint64_t& raw64() const  {return data.raw64;}
+    inline const unsigned char& head() const  {return data.raw8[7];}
+    inline const unsigned char& brow() const  {return data.raw8[6];}
+    inline const unsigned char& col1() const  {return data.raw8[5];}
+    inline const unsigned char& col2() const  {return data.raw8[4];}
+    inline const uint16_t& adc1() const  {return data.raw16[1];}
+    inline const uint16_t& adc2() const  {return data.raw16[0];}
+    inline static void dropbyte(MeasRaw meas){
+      meas.data.raw64>>8;
+    }
+  };
+  
+
+  MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout_idel, const std::chrono::milliseconds &timeout_idel){ //timeout_read_interval
+  // std::fprintf(stderr, "-");
+  MeasRaw meas;
+  size_t size_buf = sizeof(meas);
+  size_t size_filled = 0;  
+  bool can_time_out = false;
+  int read_len_real = 0;
+  while(size_filled < size_buf){
+    read_len_real = read(fd_rx, &(meas.data.raw8[size_filled]), size_buf-size_filled);
+    if(read_len_real>0){
+      // debug_print(">>>read  %d Bytes \n", read_len_real);
+      size_filled += read_len_real;
+      can_time_out = false; // with data incomming, timeout counter is reset and stopped. 
+      if(meas.head() != HEADER_BYTE){
+	std::fprintf(stderr, "ERROR<%s>: wrong header of dataword, skip\n", __func__);
+	// std::fprintf(stderr, "RawData_TCP_RX:\n%s\n", StringToHexString(buf).c_str());
+	MeasRaw::dropbyte(meas); //shift and remove a byte  
+	size_filled -= 1;
+	continue;
       }
     }
-    return len_total;
-  }
-
-  std::string readPack(int fd_rx, const std::chrono::milliseconds &timeout_idel){ //timeout_read_interval
-    // std::fprintf(stderr, "-");
-    size_t size_buf_min = 16;
-    size_t size_buf = size_buf_min;
-    std::string buf(size_buf, 0);
-    size_t size_filled = 0;
-    std::chrono::system_clock::time_point tp_timeout_idel;
-    bool can_time_out = false;
-    int read_len_real = 0;
-    while(size_filled < size_buf){
-      read_len_real = read(fd_rx, &buf[size_filled], size_buf-size_filled);
-      if(read_len_real>0){
-        // debug_print(">>>read  %d Bytes \n", read_len_real);
-        size_filled += read_len_real;
-        can_time_out = false;
-        if(size_buf == size_buf_min  && size_filled >= size_buf_min){
-          uint8_t header_byte =  buf.front();
-          uint32_t w1 = *reinterpret_cast<const uint32_t*>(buf.data()+4);
-          // uint8_t rsv = (w1>>20) & 0xf;
-
-          uint32_t size_payload = (w1 & 0xfffff);
-          // std::cout<<" size_payload "<< size_payload<<std::endl;
-          if(header_byte != HEADER_BYTE){
-            std::fprintf(stderr, "ERROR<%s>: wrong header of data frame, skip\n", __func__);
-	    std::fprintf(stdout, "RawData_TCP_RX:\n%s\n", binToHexString(buf).c_str());
-	    std::fprintf(stderr, "<");
-            //TODO: skip broken data
-	    dumpBrokenData(fd_rx);
-	    size_buf = size_buf_min;
-	    size_filled = 0;
-	    can_time_out = false;
-            continue;
-          }
-          size_buf += size_payload;
-          size_buf &= -4; // aligment 32bits, tail 32bits might be cutted.
-	  if(size_buf > 300){
-	    size_buf = 300;
+    else if (read_len_real== 0 || (read_len_real < 0 && errno == EAGAIN)){ // empty readback, read again
+      if(!can_time_out){ // first hit here, if timeout counter was not yet started.
+	can_time_out = true;
+	tp_timeout_idel = std::chrono::system_clock::now() + timeout_idel; // start timeout counter
+      }
+      else{
+	if(std::chrono::system_clock::now() > tp_timeout_idel){ // timeout overflow reached
+	  if(size_filled == 0){
+	    // debug_print("INFO<%s>: no data receving.\n",  __func__);
+	    return MeasRaw(0);
 	  }
-          buf.resize(size_buf);
-        }
+	  std::fprintf(stderr, "ERROR<%s>: timeout error of incomplete data reading \n", __func__ );
+	  std::fprintf(stderr, "=");
+	  return MeasRaw(0);
+	}
       }
-      else if (read_len_real== 0 || (read_len_real < 0 && errno == EAGAIN)){ // empty readback, read again
-        if(!can_time_out){
-          can_time_out = true;
-          tp_timeout_idel = std::chrono::system_clock::now() + timeout_idel;
-        }
-        else{
-          if(std::chrono::system_clock::now() > tp_timeout_idel){
-            if(size_filled == 0){
-              // debug_print("INFO<%s>: no data receving.\n",  __func__);
-              return std::string();
-            }
-            //TODO: keep remain data, nothrow
-            std::fprintf(stderr, "ERROR<%s>: timeout error of incomplete data reading \n", __func__ );
-	    std::fprintf(stderr, "=");
-	    return std::string();
-	    // throw;
-          }
-        }
-        continue;
-      }
-      else{
-        std::fprintf(stderr, "ERROR<%s>: read(...) returns error code %d\n", __func__,  errno);
-        throw;
-      }
+      continue;
     }
-    uint32_t w_end = *reinterpret_cast<const uint32_t*>(&buf.back()-3);
-
-    if(w_end != FOOTER_BYTE && (w_end>>8)!= FOOTER_BYTE && (w_end>>16)!= FOOTER_BYTE && (w_end>>24)!= FOOTER_BYTE ){
-      // std::fprintf(stderr, "ERROR<%s>:  wrong footer of data frame\n", __func__);
-      std::fprintf(stderr, ">");
-      // std::fprintf(stderr, "dumpping data Hex:\n%s\n", binToHexString(buf).c_str());
-      return std::string();
-      //throw;
+    else{
+      std::fprintf(stderr, "ERROR<%s>: read(...) returns error code %d\n", __func__,  errno);
+      throw;
     }
-    // std::fprintf(stdout, "dumpping data Hex:\n%s\n", StringToHexString(buf).c_str());
-    return buf;
   }
-
-  void fromRaw(const std::string &raw){
-    const uint8_t* p_raw_beg = reinterpret_cast<const uint8_t *>(raw.data());
-    const uint8_t* p_raw = p_raw_beg;
-    if(raw.size()<16){
-      std::fprintf(stderr, "raw data length is less than 16\n");
-      throw;
-    }
-    if( *p_raw_beg!=0x5a){
-      std::fprintf(stderr, "package header/trailer mismatch, head<%hhu>\n", *p_raw_beg);
-      throw;
-    }
-
-    p_raw++; //header   
-    p_raw++; //resv
-    p_raw++; //resv
-
-    uint8_t deviceId = *p_raw;
-    debug_print(">>deviceId %hhu\n", deviceId);
-    p_raw++; //deviceId
-
-    uint32_t len_payload_data = *reinterpret_cast<const uint32_t*>(p_raw) & 0x00ffffff;
-    uint32_t len_pack_expected = (len_payload_data + 16) & -4;
-    if( len_pack_expected  != raw.size()){
-      std::fprintf(stderr, "raw data length does not match to package size\n");
-      std::fprintf(stderr, "payload_len = %u,  package_size = %zu\n",
-                   len_payload_data, raw.size());
-      throw;
-    }
-    p_raw += 4;
-
-    uint32_t triggerId = *reinterpret_cast<const uint16_t*>(p_raw);
-    debug_print(">>triggerId %u\n", triggerId);
-    p_raw += 4;
-
-    const uint8_t* p_payload_end = p_raw_beg + 12 + len_payload_data -1;
-    if( *(p_payload_end+1) != 0xa5 ){
-      std::fprintf(stderr, "package header/trailer mismatch, trailer<%hu>\n", *(p_payload_end+1) );
-      throw;
-    }
-
-    uint8_t l_frame_n = -1;
-    uint8_t l_region_id = -1;
-    while(p_raw <= p_payload_end){
-      char d = *p_raw;
-      if(d & 0b10000000){
-        debug_print("//1     NOT DATA\n");
-        if(d & 0b01000000){
-          debug_print("//11    EMPTY or REGION HEADER or BUSY_ON/OFF\n");
-          if(d & 0b00100000){
-            debug_print("//111   EMPTY or BUSY_ON/OFF\n");
-            if(d & 0b00010000){
-              debug_print("//1111  BUSY_ON/OFF\n");
-              p_raw++;
-              continue;
-            }
-            debug_print("//1110  EMPTY\n");
-            uint8_t chip_id = d & 0b00001111;
-            l_frame_n++;
-            p_raw++;
-            d = *p_raw;
-            uint8_t bunch_counter_h = d;
-            p_raw++;
-            continue;
-          }
-          debug_print("//110   REGION HEADER\n");
-          l_region_id = d & 0b00011111;
-          debug_print(">>region_id %hhu\n", l_region_id);
-          p_raw++;
-          continue;
-        }
-        debug_print("//10    CHIP_HEADER/TRAILER or UNDEFINED\n");
-        if(d & 0b00100000){
-          debug_print("//101   CHIP_HEADER/TRAILER\n");
-          if(d & 0b00010000){
-            debug_print("//1011  TRAILER\n");
-            uint8_t readout_flag= d & 0b00001111;
-            p_raw++;
-            continue;
-          }
-          debug_print("//1010  HEADER\n");
-          uint8_t chip_id = d & 0b00001111;
-          l_frame_n++;
-          p_raw++;
-          d = *p_raw;
-          uint8_t bunch_counter_h = d;
-          p_raw++;
-          continue;
-        }
-        debug_print("//100   UNDEFINED\n");
-        p_raw++;
-        continue;
-      }
-      else{
-        debug_print("//0     DATA\n");
-        if(d & 0b01000000){
-          debug_print("//01    DATA SHORT\n"); // 2 bytes
-          uint8_t encoder_id = (d & 0b00111100)>> 2;
-          uint16_t addr = (d & 0b00000011)<<8;
-          p_raw++;
-          d = *p_raw;
-          addr += *p_raw;
-          p_raw++;
-
-          uint16_t y = addr>>1;
-          uint16_t x = (l_region_id<<5)+(encoder_id<<1)+((addr&0b1)!=((addr>>1)&0b1));
-          std::fprintf(stdout, "[%hu, %hu, %hhu]\n", x, y, deviceId);
-          continue;
-        }
-        debug_print("//00    DATA LONG\n"); // 3 bytes
-        uint8_t encoder_id = (d & 0b00111100)>> 2;
-        uint16_t addr = (d & 0b00000011)<<8;
-        p_raw++;
-        d = *p_raw;
-        addr += *p_raw;
-        p_raw++;
-        d = *p_raw;
-        uint8_t hit_map = (d & 0b01111111);
-        p_raw++;
-        uint16_t y = addr>>1;
-        uint16_t x = (l_region_id<<5)+(encoder_id<<1)+((addr&0b1)!=((addr>>1)&0b1));
-        debug_print("[%hu, %hu, %hhu] ", x, y, deviceId);
-
-        for(int i=1; i<=7; i++){
-          if(hit_map & (1<<(i-1))){
-            uint16_t addr_l = addr + i;
-            uint16_t y = addr_l>>1;
-            uint16_t x = (l_region_id<<5)+(encoder_id<<1)+((addr_l&0b1)!=((addr_l>>1)&0b1));
-            debug_print("[%hu, %hu, %hhu] ", x, y, deviceId);
-          }
-        }
-        debug_print("\n");
-        continue;
-      }
-    }
-    return;
-  }
+  return meas;
 }
 
-
+}
 
 
 static const std::string help_usage = R"(
@@ -537,67 +394,36 @@ int main(int argc, char *argv[]) {
   }
   std::fprintf(stdout, " connected\n");
 
-  size_t unexpectedN = 0;
-  size_t dataFrameN = 0;
   
   std::chrono::system_clock::time_point tp_timeout_exit  = std::chrono::system_clock::now() + std::chrono::seconds(exitTimeSecond);
 
-  bool isFirstEvent = true;
-  uint16_t firstId = 0;
-  uint16_t lastId = 0;
-
-
   std::future<uint64_t> fut_async_watch;
   fut_async_watch = std::async(std::launch::async, &AsyncWatchDog);
+  std::chrono::system_clock::time_point tp_timeout;
   while(!g_done){
     if(exitTimeSecond && std::chrono::system_clock::now() > tp_timeout_exit){
       std::fprintf(stdout, "run %d seconds, nornal exit\n", exitTimeSecond);
       break;
     }
-    auto df_pack = readPack(fd_rx, std::chrono::seconds(1));
+    auto meas = readMeasRaw(fd_rx, tp_timeout, std::chrono::seconds(1));
+    
     // auto df = rd->Read(std::chrono::seconds(1));
-    if(df_pack.empty()){
-      // std::fprintf(stdout, "Data reveving timeout\n");
+    if(meas==0){
+      std::fprintf(stdout, "Data reveving timeout\n");
       continue;
     }
-    else if(df_pack.size()<16){
-      std::fprintf(stdout, "ERROR, too small pack size\n");
-    }
     if(do_rawPrint){
-      std::fprintf(stdout, "DataFrame #%d, DeviceId #%hhu,  TriggerId #%hu, PayloadLen %u\n",
-                   dataFrameN, df_pack[3],
-                   *reinterpret_cast<const uint16_t*>(df_pack.data() + 8),
-                   *reinterpret_cast<const uint32_t*>(df_pack.data() + 4));
-      std::fprintf(stdout, "RawData_TCP_RX:\n%s\n", binToHexString(df_pack).c_str());
-      fromRaw(df_pack);
-      std::fflush(stdout);
+      // std::fprintf(stdout, "DataFrame #%d, DeviceId #%hhu,  TriggerId #%hu, PayloadLen %u\n",
+      //              dataFrameN, df_pack[3],
+      //              *reinterpret_cast<const uint16_t*>(df_pack.data() + 8),
+      //              *reinterpret_cast<const uint32_t*>(df_pack.data() + 4));
+      std::fprintf(stdout, "RawData_TCP_RX:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
+      // fromRaw(df_pack);
+      // std::fflush(stdout);
     }
 
-    uint16_t triggerId =  *reinterpret_cast<const uint16_t*>(df_pack.data() + 8);
-    if(isFirstEvent){
-      lastId = triggerId -1;
-      isFirstEvent = false;
-    }
-    uint16_t expectedId = lastId +1;
-    
-    if(triggerId != expectedId ){
-      std::fprintf(stdout, "expected #%hu, got #%hu,  lost #%hu\n",  expectedId, triggerId, triggerId-expectedId);
-      unexpectedN ++;
-    }    
-    
-    if(fp){
-      std::fwrite(df_pack.data(), 1, df_pack.size(), fp);
-      std::fflush(fp);
-    }
-    dataFrameN ++;
-    lastId = triggerId;
-
-    ga_dataFrameN = dataFrameN;
-    ga_unexpectedN = unexpectedN;
-    ga_lastTriggerId = lastId;
   }
 
-  std::fprintf(stdout, "dataFrameN #%zu, unexpectedN #%zu\n",  dataFrameN, unexpectedN);
   
   close(fd_rx);
   if(fp){

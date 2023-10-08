@@ -14,7 +14,8 @@
 #include "DataReader.hh"
 
 
-#define HEADER_BYTE  (0x5a)
+#define HEADER_BYTE  (0b01010101)
+
 // #define FOOTER_BYTE  (0xa5)
 
 

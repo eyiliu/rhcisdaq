@@ -23,21 +23,31 @@ public:
   FirmwarePortal(const std::string &json_str_options);
 
   void SetFirmwareRegister(const std::string& name, uint64_t value);
-  void SendFirmwareCommand(const std::string& name);
   uint64_t GetFirmwareRegister(const std::string& name);
 
-  void SetCisRegister(const std::string& name, uint64_t value);
-  void SendCisCommand(const std::string& name);
-  uint64_t GetCisRegister(const std::string& name);  
-    
-  
   static std::string LoadFileToString(const std::string& path);
-
+  
 private:
-  void  WriteByte(uint64_t address, uint64_t value);
-  uint64_t ReadByte(uint64_t address);
+
+  void DeviceOpen();
+  void DeviceClose();
+  int   m_fd{0};
+  char* m_virt_addr_base{0};
+  char* m_virt_addr_end{0};
   
 public:
+
+  template <typename T>
+  void Write(const uint64_t &offset, const T &value){
+    *((T*)(m_virt_addr_base + offset))=value;
+  }
+
+  template <typename T>
+  T Read(const uint64_t &offset){
+    T* virt_addr = reinterpret_cast<T*>(m_virt_addr_base + offset);
+    return  *virt_addr;
+  }
+  
   template<typename ... Args>
   static std::string FormatString( const std::string& format, Args ... args ){
     std::size_t size = snprintf( nullptr, 0, format.c_str(), args ... ) + 1;

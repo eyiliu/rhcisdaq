@@ -203,7 +203,7 @@ int main(int argc, char **argv){
       std::string name = mt[3].str();
       if(layer && layer->m_fw){
         uint64_t value = std::stoull(mt[5].str(), 0, mt[4].str().empty()?10:16);
-        layer->m_fw->SetCisRegister(name, value);
+        // layer->m_fw->SetCisRegister(name, value);
       }
     }
     else if ( std::regex_match(result, std::regex("\\s*(sensor)\\s+(get)\\s+(\\w+)\\s*")) ){
@@ -211,8 +211,8 @@ int main(int argc, char **argv){
       std::regex_match(result, mt, std::regex("\\s*(sensor)\\s+(get)\\s+(\\w+)\\s*"));
       std::string name = mt[3].str();
       if(layer && layer->m_fw){
-        uint64_t value = layer->m_fw->GetCisRegister(name);
-        fprintf(stderr, "%s = %llu, %#llx\n", name.c_str(), value, value);
+        // uint64_t value = layer->m_fw->GetCisRegister(name);
+        // fprintf(stderr, "%s = %llu, %#llx\n", name.c_str(), value, value);
       }
     }
     else if ( std::regex_match(result, std::regex("\\s*(firmware)\\s+(set)\\s+(\\w+)\\s+(?:(0[Xx])?([0-9]+))\\s*")) ){
@@ -253,7 +253,6 @@ int main(int argc, char **argv){
 
   return 0;
 }
-
 
 
 struct DummyDump{

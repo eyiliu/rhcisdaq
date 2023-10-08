@@ -178,7 +178,6 @@ int main(int argc, char **argv){
     else if ( std::regex_match(result, std::regex("\\s*(dump)\\s+(start)\\s*"))){
       if(layer)
         dummyDump = std::make_unique<DummyDump>(layer.get());
-
     }
     else if ( std::regex_match(result, std::regex("\\s*(dump)\\s+(stop)\\s*"))){
       dummyDump.reset();
@@ -191,7 +190,7 @@ int main(int argc, char **argv){
       tcpServer.reset();
     }
     else if ( std::regex_match(result, std::regex("\\s*(tcpclient)\\s+(start)\\s*"))){
-        tcpClient = std::make_unique<TcpClientConn>("127.0.0.1", 9000);
+      tcpClient = std::make_unique<TcpClientConn>("127.0.0.1", 9000);
     }
     else if ( std::regex_match(result, std::regex("\\s*(tcpclient)\\s+(stop)\\s*"))){
       tcpClient.reset();

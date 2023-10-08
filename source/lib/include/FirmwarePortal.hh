@@ -68,7 +68,7 @@ public:
 
   template<typename ... Args>
   static std::size_t DebugFormatPrint(std::ostream &os, const std::string& format, Args ... args ){
-    return 0;
+    //    return 0;
     std::size_t size = snprintf( nullptr, 0, format.c_str(), args ... ) + 1;
     std::unique_ptr<char[]> buf( new char[ size ] ); 
     std::snprintf( buf.get(), size, format.c_str(), args ... );

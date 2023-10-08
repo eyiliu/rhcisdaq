@@ -20,6 +20,7 @@
 #define HEADER_BYTE  (0b01010101)
 
 
+
 using std::uint8_t;
 using std::uint16_t;
 using std::uint32_t;
@@ -52,21 +53,7 @@ uint64_t AsyncWatchDog(){
     std::chrono::duration<double> dur_accu_sec = tp_now - tp_run_begin;
     double sec_period = dur_period_sec.count();
     double sec_accu = dur_accu_sec.count();
-
-    // size_t st_unexpectedN = ga_unexpectedN;
-    // size_t st_dataFrameN = ga_dataFrameN;
-    // uint16_t st_lastTriggerId= ga_lastTriggerId;
-    
-    // double st_hz_pack_accu = st_dataFrameN / sec_accu;
-    // double st_hz_pack_period = (st_dataFrameN-st_old_dataFrameN) / sec_period;
-
-    // tp_old = tp_now;
-    // st_old_dataFrameN= st_dataFrameN;
-    // st_old_unexpectedN = st_unexpectedN;
-    // std::fprintf(stdout, "ev_accu(%8.2f hz) ev_trans(%8.2f hz) last_id(%8.2hu)\r",st_hz_pack_accu, st_hz_pack_period, st_lastTriggerId);
-    // std::fflush(stdout);
   }
-  // std::fprintf(stdout, "\n\n");
   return 0;
 }
 
@@ -423,7 +410,6 @@ int main(int argc, char *argv[]) {
     }
 
   }
-
   
   close(fd_rx);
   if(fp){

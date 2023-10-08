@@ -1,7 +1,7 @@
 {
-    "FIRMWARE_CTRL_PROTOCOL":{
+    "FIRMWARE_CTRL":{
 	"device_file":"/dev/mem",
-	"address_base":"0x43c00000"
+	"address_base":"0x43c00000",
 	"memory_size":"0x0100"
     },
     

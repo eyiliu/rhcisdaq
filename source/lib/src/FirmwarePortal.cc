@@ -12,8 +12,11 @@ static const std::string reg_cmd_list_content =
   ;
 
 FirmwarePortal::FirmwarePortal(const std::string &json_str){
+  std::cout<< "firmwareportal construction"<< json_str<<std::endl;
   if(json_str == "builtin"){
     m_json.Parse(reg_cmd_list_content.c_str());
+    std::cout<< "<<<<<<"<<reg_cmd_list_content<<std::endl;
+    std::cout<< "<<<<<<"<<std::endl;
   }
   else{
     m_json.Parse(json_str.c_str());
@@ -22,16 +25,28 @@ FirmwarePortal::FirmwarePortal(const std::string &json_str){
     fprintf(stderr, "JSON parse error: %s (at string positon %lu)", rapidjson::GetParseError_En(m_json.GetParseError()), m_json.GetErrorOffset());
     throw;
   }
+  
+  
+  DeviceOpen();
 }
 
 void FirmwarePortal::DeviceOpen(){
+  std::cout<<"deviceOpen "<<std::endl;
+
   if(m_fd){
     printf("Error:  m_fd was opened. do nothing \n");
     return;
   }
 
-  auto& js_fwctrl = m_json["FIRMWARE_CTRL_PROTOCOL"];
+  auto& js_fwctrl = m_json["FIRMWARE_CTRL"];
+  if(js_fwctrl.Empty()){
+    FormatPrint(std::cerr, "ERROR<%s>:   unable to find FIRMWARE_CTRL\n", __func__);
+    throw;
+  }
+  
+  
   std::string device_file_name = js_fwctrl["device_file"].GetString();
+
   uint64_t address_base = std::stoull(js_fwctrl["address_base"].GetString(), 0, 16);
   uint64_t length_require = std::stoull(js_fwctrl["memory_size"].GetString(), 0, 16);
   
@@ -40,6 +55,7 @@ void FirmwarePortal::DeviceOpen(){
     DeviceClose();
     exit(-1);
   }
+  std::cout<<"mmap open "<<std::endl;
   
   off_t phy_addr = address_base;
   size_t len = length_require;
@@ -61,6 +77,9 @@ void FirmwarePortal::DeviceOpen(){
     exit(-1);
   }
 
+  std::cout<<"MMAP sucess "<<std::endl;
+
+  
   m_virt_addr_base = (char*)map_base + offset_in_page;  
   m_virt_addr_end = (char*)map_base + mapped_size-1;
 }
@@ -112,7 +131,7 @@ void FirmwarePortal::SetFirmwareRegister(const std::string& name, uint64_t value
     else{
       FormatPrint(std::cerr, "ERROR<%s>:   n bytes does not fit\n", __func__);
       throw;
-    }	
+    }
     flag_found_reg = true;
     break;
   }
@@ -125,7 +144,7 @@ void FirmwarePortal::SetFirmwareRegister(const std::string& name, uint64_t value
  
 uint64_t FirmwarePortal::GetFirmwareRegister(const std::string& name){
   DebugFormatPrint(std::cout, "INFO<%s>:  %s( name=%s )\n", __func__, __func__, name.c_str());
-  static const std::string array_name("FIRMWARE_REG_LIST_V3");
+  static const std::string array_name("FIRMWARE_REG_LIST");
   auto& json_array = m_json[array_name];
   if(json_array.Empty()){
     FormatPrint(std::cerr, "ERROR<%s>:   unable to find array<%s>\n", __func__, array_name.c_str());
@@ -174,6 +193,7 @@ uint64_t FirmwarePortal::GetFirmwareRegister(const std::string& name){
 }
 
 std::string FirmwarePortal::LoadFileToString(const std::string& path){
+
   std::ifstream ifs(path);
   if(!ifs.good()){
       std::cerr<<"LoadFileToString:: ERROR, unable to load file<"<<path<<">\n";

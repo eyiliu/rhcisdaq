@@ -20,7 +20,6 @@
 #define HEADER_BYTE  (0b01010101)
 
 
-
 using std::uint8_t;
 using std::uint16_t;
 using std::uint32_t;
@@ -122,8 +121,6 @@ namespace{
     return hexToBinString(hex.data(), hex.size());
   }
 
-
-
   struct MeasRaw;
 
   struct MeasRaw{
@@ -154,12 +151,12 @@ namespace{
     }
 
     inline const uint64_t& raw64() const  {return data.raw64;}
-    inline const unsigned char& head() const  {return data.raw8[7];}
-    inline const unsigned char& brow() const  {return data.raw8[6];}
-    inline const unsigned char& col1() const  {return data.raw8[5];}
-    inline const unsigned char& col2() const  {return data.raw8[4];}
-    inline const uint16_t& adc1() const  {return data.raw16[1];}
-    inline const uint16_t& adc2() const  {return data.raw16[0];}
+    inline const unsigned char& head() const  {return data.raw8[3];}
+    inline const unsigned char& brow() const  {return data.raw8[2];}
+    inline const unsigned char& col1() const  {return data.raw8[1];}
+    inline const unsigned char& col2() const  {return data.raw8[0];}
+    inline const uint16_t& adc1() const  {return data.raw16[1];} // raw8[7]<<8+raw8[6]
+    inline const uint16_t& adc2() const  {return data.raw16[0];} // raw8[5]<<8+raw8[4]
     inline static void dropbyte(MeasRaw meas){
       meas.data.raw64>>8;
     }
@@ -179,13 +176,13 @@ namespace{
       // debug_print(">>>read  %d Bytes \n", read_len_real);
       size_filled += read_len_real;
       can_time_out = false; // with data incomming, timeout counter is reset and stopped. 
-      if(meas.head() != HEADER_BYTE){
-	std::fprintf(stderr, "ERROR<%s>: wrong header of dataword, skip\n", __func__);
-	// std::fprintf(stderr, "RawData_TCP_RX:\n%s\n", StringToHexString(buf).c_str());
-	MeasRaw::dropbyte(meas); //shift and remove a byte  
-	size_filled -= 1;
-	continue;
-      }
+      // if(meas.head() != HEADER_BYTE){
+      // 	std::fprintf(stderr, "ERROR<%s>: wrong header of dataword, skip\n", __func__);
+      // 	// std::fprintf(stderr, "RawData_TCP_RX:\n%s\n", StringToHexString(buf).c_str());
+      // 	MeasRaw::dropbyte(meas); //shift and remove a byte  
+      // 	size_filled -= 1;
+      // 	continue;
+      // }
     }
     else if (read_len_real== 0 || (read_len_real < 0 && errno == EAGAIN)){ // empty readback, read again
       if(!can_time_out){ // first hit here, if timeout counter was not yet started.

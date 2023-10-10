@@ -10,6 +10,7 @@
 
 
 struct MeasRaw;
+struct MeasPixel;
 
 struct MeasRaw{
   union {
@@ -33,24 +34,36 @@ struct MeasRaw{
   inline bool operator==(const uint64_t &rh) const{
     return data.raw64 == rh;
   }
-
   
   inline bool operator<(const MeasRaw &rh) const{
     return data.raw64 < rh.data.raw64;
   }
 
   inline const uint64_t& raw64() const  {return data.raw64;}
-  inline const unsigned char& head() const  {return data.raw8[7];}
-  inline const unsigned char& brow() const  {return data.raw8[6];}
-  inline const unsigned char& col1() const  {return data.raw8[5];}
-  inline const unsigned char& col2() const  {return data.raw8[4];}
-  inline const uint16_t& adc1() const  {return data.raw16[1];}
-  inline const uint16_t& adc2() const  {return data.raw16[0];}
+  inline const unsigned char& head() const  {return data.raw8[3];}
+  inline const unsigned char& brow() const  {return data.raw8[2];}
+  inline const unsigned char& col0() const  {return data.raw8[1];}
+  inline const unsigned char& col1() const  {return data.raw8[0];}
+  inline const uint16_t& adc0() const  {return data.raw16[1];} // raw8[7]<<8+raw8[6]
+  inline const uint16_t& adc1() const  {return data.raw16[0];} // raw8[5]<<8+raw8[4]
   inline static void dropbyte(MeasRaw meas){
     meas.data.raw64>>8;
   }
+
+  // MeasPixel getPixel0(){return {brow(),col0(),adc0()};}
+  // MeasPixel getPixel1(){return {brow(),col1(),adc1()};}
+  
 };
 
+struct MeasPixel{
+  uint8_t row;
+  uint8_t col;
+  uint16_t adc;
+
+  inline bool operator<(const MeasPixel &rh) const{
+    return static_cast<uint16_t>(row)<<8+col < static_cast<uint16_t>(rh.row)<<8+col;
+  }
+};
 
 
 class DataFrame;
@@ -66,12 +79,7 @@ public:
   DataFrame(const rapidjson::Value &js);
   DataFrame(const rapidjson::GenericValue<rapidjson::UTF8<>, rapidjson::CrtAllocator> &js);
   DataFrame(){};
-  
-  // inline void SetTrigger(uint64_t v){m_trigger = v;};
-  // inline uint64_t GetTrigger(){return m_trigger;};
-  // inline uint64_t GetCounter(){return m_counter;}
-  // inline uint64_t GetExtension(){return m_extension;}
-  
+    
   void Print(std::ostream& os, size_t ws = 0) const;
 
   template <typename Allocator>
@@ -83,15 +91,17 @@ public:
   void fromRaw(const std::string &raw);
   
   void fromMeasRaws(const std::vector<MeasRaw> &meas_col);
+  void fromMeasPixels(const std::vector<MeasPixel> &pixel_col);
 
+  void fillPixel(const MeasPixel pixel);
 
-  std::vector<MeasRaw> m_meas_col;
   
-  // static const uint16_t s_version{4};
+  std::vector<MeasRaw> m_meas_col;
+
+  std::vector<MeasPixel> m_pixel_col;
+  
   std::string m_raw;
-  // uint64_t m_counter{0};
-  // uint64_t m_extension{0};
-  // uint64_t m_trigger{0};
+
 };
 
 

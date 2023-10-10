@@ -20,7 +20,6 @@
   do { if (INFO_PRINT) std::fprintf(stdout, fmt, ##__VA_ARGS__); } while (0)
 
 
-
 DataFrame::DataFrame(std::string&& raw)
   : m_raw(std::move(raw))
 {

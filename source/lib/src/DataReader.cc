@@ -16,9 +16,6 @@
 
 #define HEADER_BYTE  (0b01010101)
 
-// #define FOOTER_BYTE  (0xa5)
-
-
 namespace{
   std::string CStringToHexString(const char *bin, const int len){
     constexpr char hexmap[] = {'0', '1', '2', '3', '4', '5', '6', '7',
@@ -102,7 +99,7 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
       // debug_print(">>>read  %d Bytes \n", read_len_real);
       size_filled += read_len_real;
       can_time_out = false; // with data incomming, timeout counter is reset and stopped. 
-      if(meas.head() != HEADER_BYTE){
+      if(size_filled >=4 && meas.head() != HEADER_BYTE){	
 	std::fprintf(stderr, "ERROR<%s>: wrong header of dataword, skip\n", __func__);
 	// std::fprintf(stderr, "RawData_TCP_RX:\n%s\n", StringToHexString(buf).c_str());
 	MeasRaw::dropbyte(meas); //shift and remove a byte  
@@ -137,19 +134,23 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
 }
 
 
-
 DataFrameSP DataReader::Read(const std::chrono::milliseconds &timeout_idle){ //timeout_read_interval
-  std::vector<MeasRaw> meas_col;
-  auto meas = readMeasRaw(m_fd, tp_timeout_idel, timeout_idle);
-  if(meas==0){
-    return nullptr;
-  }
-  meas_col.push_back(meas);
-
-  // auto df = std::make_shared<DataFrame>();
-  // df->m_raw=std::move(buf);
-  // return df;
   
+  std::vector<MeasRaw> meas_col;
+  while(1){
+    auto meas = readMeasRaw(m_fd, tp_timeout_idel, timeout_idle);
+    if(meas==0){
+      return nullptr;
+    }
+    if(meas.isFrontMeasRaw()){
+      meas_col.clear();
+      meas_col.reserve(64*32);
+    }
+    meas_col.push_back(meas);    
+    if(meas.isEndMeasRaw()){
+      break;
+    }
+  }
   return std::make_shared<DataFrame>(std::move(meas_col));
 }
 

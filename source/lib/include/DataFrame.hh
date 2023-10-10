@@ -4,13 +4,30 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <map>
+
 
 #include "mysystem.hh"
 #include "myrapidjson.h"
 
 
+#define FRONT_MEASRAW_32 (0x5500383c)
+#define END_MEASRAW_32 (0x55003307)
+
 struct MeasRaw;
 struct MeasPixel;
+
+
+struct MeasPixel{
+  uint8_t row;
+  uint8_t col;
+  uint16_t adc;
+
+  inline bool operator<(const MeasPixel &rh) const{
+    return static_cast<uint16_t>(row)<<8+col < static_cast<uint16_t>(rh.row)<<8+col;
+  }
+};
+
 
 struct MeasRaw{
   union {
@@ -50,25 +67,21 @@ struct MeasRaw{
     meas.data.raw64>>8;
   }
 
-  // MeasPixel getPixel0(){return {brow(),col0(),adc0()};}
-  // MeasPixel getPixel1(){return {brow(),col1(),adc1()};}
-  
-};
+  inline MeasPixel getPixel0() const {return {brow(),col0(),adc0()};}
+  inline MeasPixel getPixel1() const {return {brow(),col1(),adc1()};}
 
-struct MeasPixel{
-  uint8_t row;
-  uint8_t col;
-  uint16_t adc;
-
-  inline bool operator<(const MeasPixel &rh) const{
-    return static_cast<uint16_t>(row)<<8+col < static_cast<uint16_t>(rh.row)<<8+col;
+  inline bool isFrontMeasRaw(){
+    return (data.raw32[0]==FRONT_MEASRAW_32);
   }
+
+  inline bool isEndMeasRaw(){
+    return (data.raw32[0]==END_MEASRAW_32);
+  }  
 };
 
 
 class DataFrame;
 using DataFrameSP = std::shared_ptr<DataFrame>;
-
 
 class DataFrame {
 public:
@@ -79,133 +92,37 @@ public:
   DataFrame(const rapidjson::Value &js);
   DataFrame(const rapidjson::GenericValue<rapidjson::UTF8<>, rapidjson::CrtAllocator> &js);
   DataFrame(){};
-    
+  
   void Print(std::ostream& os, size_t ws = 0) const;
 
-  template <typename Allocator>
-  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> JSON(Allocator &a) const;
+  template <typename TA>
+  rapidjson::GenericValue<rapidjson::UTF8<>, TA> JSON(TA &a) const;
 
-  template <typename Allocator>
-  void fromJSON(const rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> &js);
+  template <typename TA>
+  void fromJSON(const rapidjson::GenericValue<rapidjson::UTF8<>, TA> &js);
 
   void fromRaw(const std::string &raw);
   
   void fromMeasRaws(const std::vector<MeasRaw> &meas_col);
-  void fromMeasPixels(const std::vector<MeasPixel> &pixel_col);
-
-  void fillPixel(const MeasPixel pixel);
-
   
-  std::vector<MeasRaw> m_meas_col;
-
+  std::vector<MeasRaw> m_measraw_col;
   std::vector<MeasPixel> m_pixel_col;
+
+  std::map<std::pair<uint8_t, uint8_t>, int16_t> m_map_pos_adc;
   
   std::string m_raw;
-
 };
 
 
-
-template <typename Allocator>
-rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> DataFrame::JSON(Allocator &a) const{
-  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js;
+template <typename TA>
+rapidjson::GenericValue<rapidjson::UTF8<>, TA> DataFrame::JSON(TA &a) const{
+  rapidjson::GenericValue<rapidjson::UTF8<>, TA> js;
   return js;
 }
 
-template <typename Allocator>
-void DataFrame::fromJSON(const rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> &js){
-
+template <typename TA>
+void DataFrame::fromJSON(const rapidjson::GenericValue<rapidjson::UTF8<>, TA> &js){
 }
-
-/*
-
-template <typename Allocator>
-rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> DataFrame::JSON(Allocator &a) const{
-  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js;
-  js.SetObject();
-  js.AddMember("det", "cis", a);
-  js.AddMember("ver",  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(s_version), a);
-  js.AddMember("tri",  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(m_trigger), a);
-  js.AddMember("cnt",  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(m_counter), a);
-  js.AddMember("ext",  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(m_extension), a);
-
-  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js_cluster_hits;
-  js_cluster_hits.SetArray();
-  for(auto &ch : m_clusters){
-    rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js_cluster_hit;
-    js_cluster_hit.SetObject();
-
-    rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js_cluster_hit_pos;
-    js_cluster_hit_pos.SetArray();
-    // must enable  RAPIDJSON_HAS_CXX11_RVALUE_REFS 1
-    js_cluster_hit_pos.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(ch.x()), a);
-    js_cluster_hit_pos.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(ch.y()), a);
-    js_cluster_hit_pos.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(ch.z()), a);
-    js_cluster_hit.AddMember("pos", std::move(js_cluster_hit_pos), a);
-
-    rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js_cluster_hit_res;
-    js_cluster_hit_res.SetArray();
-    js_cluster_hit_res.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(ch.resX()), a);
-    js_cluster_hit_res.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(ch.resY()), a);
-    js_cluster_hit.AddMember("res", std::move(js_cluster_hit_res), a);
-      
-    rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js_pixel_hits;
-    js_pixel_hits.SetArray();
-    for(auto &ph : ch.pixelHits){
-      rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js_pixel_hit_pos;
-      js_pixel_hit_pos.SetArray();
-      js_pixel_hit_pos.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(ph.x()), a);
-      js_pixel_hit_pos.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(ph.y()), a);
-      js_pixel_hit_pos.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(ph.z()), a);
-      js_pixel_hits.PushBack(std::move(js_pixel_hit_pos), a);
-    }
-    js_cluster_hit.AddMember("pix", std::move(js_pixel_hits), a);
-      
-    js_cluster_hits.PushBack(std::move(js_cluster_hit), a);
-  }
-  js.AddMember("hit", std::move(js_cluster_hits) , a);
-    
-  //https://rapidjson.org/classrapidjson_1_1_generic_object.html
-  //https://rapidjson.org/md_doc_tutorial.html#CreateModifyValues
-  return js;
-};
-  
-template <typename Allocator>
-void DataFrame::fromJSON(const rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> &js){
-  if(js["ver"].GetUint64()!=s_version){
-    std::fprintf(stderr, "mismathed data writer/reader versions");
-    throw;
-  }
-
-  m_trigger   = js["tri"].GetUint64();
-  m_counter   = js["cnt"].GetUint64();
-  m_extension = js["ext"].GetUint64();
-    
-  const auto &js_chs = js["hit"].GetArray();
-  for(const auto &js_ch : js_chs){
-    std::vector<PixelHit> pixelhits;
-    const auto &js_phs = js_ch["pix"].GetArray();
-    for(const auto &js_ph : js_phs){
-      const auto &js_pos = js_ph.GetArray();
-      pixelhits.emplace_back(js_pos[0].GetUint(),
-			     js_pos[1].GetUint(),
-			     js_pos[2].GetUint());
-    }
-    ClusterHit clusterhit(std::move(pixelhits));
-    clusterhit.buildClusterCenter();
-    m_clusters.push_back(std::move(clusterhit));
-  }
-}
-
-*/
-
-class DataPack{
-public:
-  uint64_t m_trigger{0};
-  std::vector<DataFrameSP> m_frames;
-};
-
-using DataPackSP = std::shared_ptr<DataPack>;
 
 #endif
 

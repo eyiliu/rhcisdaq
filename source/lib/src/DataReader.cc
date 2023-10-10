@@ -33,7 +33,6 @@ namespace{
     return CStringToHexString(bin.data(), bin.size());
   }
 
-
 }
 
 
@@ -100,9 +99,9 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
       size_filled += read_len_real;
       can_time_out = false; // with data incomming, timeout counter is reset and stopped. 
       if(size_filled >=4 && meas.head() != HEADER_BYTE){	
-	std::fprintf(stderr, "ERROR<%s>: wrong header of dataword, skip\n", __func__);
-	// std::fprintf(stderr, "RawData_TCP_RX:\n%s\n", StringToHexString(buf).c_str());
-	MeasRaw::dropbyte(meas); //shift and remove a byte  
+	std::fprintf(stderr, "ERROR<%s>: wrong header of dataword (%s), shift one byte to be ", __func__, CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
+	MeasRaw::dropbyte(meas); //shift and remove a byte 
+	std::fprintf(stderr, "(%s)\n", CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
 	size_filled -= 1;
 	continue;
       }
@@ -134,8 +133,7 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
 }
 
 
-DataFrameSP DataReader::Read(const std::chrono::milliseconds &timeout_idle){ //timeout_read_interval
-  
+DataFrameSP DataReader::Read(const std::chrono::milliseconds &timeout_idle){ //timeout_read_interval  
   std::vector<MeasRaw> meas_col;
   while(1){
     auto meas = readMeasRaw(m_fd, tp_timeout_idel, timeout_idle);

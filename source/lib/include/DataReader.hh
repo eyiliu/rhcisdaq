@@ -29,6 +29,9 @@ private:
   std::chrono::system_clock::time_point tp_timeout_idel;
   std::string m_file_path;
   JsonDocument m_jsdoc_conf;
+
+  
+  
 };
 
 #endif

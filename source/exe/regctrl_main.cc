@@ -97,13 +97,14 @@ int main(int argc, char **argv){
   }
 
   ///////////////////////
-  std::unique_ptr<Layer> layer;
+  std::unique_ptr<Camera> layer;
   std::unique_ptr<TcpServer> tcpServer;
   std::unique_ptr<DummyDump> dummyDump;
   std::unique_ptr<TcpClientConn> tcpClient;
 
-  const char* linenoise_history_path = "/tmp/.regctrl_cmd_history";
-  linenoiseHistoryLoad(linenoise_history_path);
+  auto history_file_path = std::filesystem::temp_directory_path();
+  history_file_path /=".regctrl.history"; 
+  linenoiseHistoryLoad(history_file_path.c_str());
   linenoiseSetCompletionCallback([](const char* prefix, linenoiseCompletions* lc)
                                    {
                                      static const char* examples[] =
@@ -151,7 +152,7 @@ int main(int argc, char **argv){
       dummyDump.reset();
       tcpClient.reset();
       tcpServer.reset();
-      layer.reset(new Layer());
+      layer.reset(new Camera());
       layer->fw_init();
       printf("done\n");
     }
@@ -238,10 +239,10 @@ int main(int argc, char **argv){
     }
 
     linenoiseHistoryAdd(result);
+    linenoiseHistorySave(history_file_path.c_str());
     free(result);
   }
-
-  linenoiseHistorySave(linenoise_history_path);
+  //linenoiseHistorySave(history_file_path.c_str());
   linenoiseHistoryFree();
 
   printf("resetting from main thread.");
@@ -261,7 +262,7 @@ struct DummyDump{
   DummyDump() = delete;
   DummyDump(const DummyDump&) =delete;
   DummyDump& operator=(const DummyDump&) =delete;
-  DummyDump(Layer *layer){
+  DummyDump(Camera *layer){
     isRunning = true;
     fut = std::async(std::launch::async, &DummyDump::AsyncDump, &isRunning, layer);
   }
@@ -272,7 +273,7 @@ struct DummyDump{
     }
   }
 
-  static uint64_t AsyncDump(bool* isDumping, Layer* layer){
+  static uint64_t AsyncDump(bool* isDumping, Camera* layer){
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
     // std::string now_str = TimeNowString("%y%m%d%H%M%S");

@@ -10,7 +10,7 @@
 
 #include "myrapidjson.h"
 
-class Layer{
+class Camera{
 public:
   std::unique_ptr<FirmwarePortal> m_fw;
   std::unique_ptr<DataReader> m_rd;
@@ -26,20 +26,12 @@ public:
   bool m_is_async_reading{false};
   bool m_is_async_watching{false};
 
-  uint64_t m_extension{0};
-
   //status variable:
-  std::atomic<uint64_t> m_st_n_tg_ev_now{0};
   std::atomic<uint64_t> m_st_n_ev_input_now{0};
   std::atomic<uint64_t> m_st_n_ev_output_now{0};
-  std::atomic<uint64_t> m_st_n_ev_bad_now{0};
   std::atomic<uint64_t> m_st_n_ev_overflow_now{0};
-  std::atomic<uint64_t> m_st_n_tg_ev_begin{0};
 
-  uint64_t m_st_n_tg_ev_old{0};
   uint64_t m_st_n_ev_input_old{0};
-  //uint64_t m_st_n_ev_output_old{0};
-  uint64_t m_st_n_ev_bad_old{0};
   uint64_t m_st_n_ev_overflow_old{0};
   std::chrono::system_clock::time_point m_tp_old;
   std::chrono::system_clock::time_point m_tp_run_begin;
@@ -47,8 +39,8 @@ public:
   std::string m_st_string;
   std::mutex m_mtx_st;
 public:
-  ~Layer();
-  Layer();
+  ~Camera();
+  Camera();
   void fw_start();
   uint64_t fw_async_restart();
   void fw_stop();
@@ -72,4 +64,3 @@ public:
     
   JsonDocument m_jsdoc_conf;
 };
-

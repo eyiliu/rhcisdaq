@@ -1,5 +1,5 @@
 add_executable(regctrl_main regctrl_main.cc)
-target_link_libraries(regctrl_main PRIVATE datactrl-fe mycommon)
+target_link_libraries(regctrl_main PRIVATE datactrl-fe mycommon stdc++fs)
 
 add_executable(dmarx_dump dmarx_dump.cc)
 
@@ -7,7 +7,7 @@ target_include_directories(dmarx_dump
   PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   )
-target_link_libraries(dmarx_dump PRIVATE mycommon stdc++fs Threads::Threads)
+target_link_libraries(dmarx_dump PRIVATE mycommon datactrl-fe stdc++fs Threads::Threads)
 
 
 install(TARGETS regctrl_main dmarx_dump

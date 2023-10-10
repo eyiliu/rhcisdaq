@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 
 #include "getopt.h"
+#include "DataFrame.hh"
 
 //8'b0101_0101
 #define HEADER_BYTE  (0b01010101)
@@ -121,47 +122,6 @@ namespace{
     return hexToBinString(hex.data(), hex.size());
   }
 
-  struct MeasRaw;
-
-  struct MeasRaw{
-    union {
-      uint64_t raw64;
-      uint32_t raw32[2];
-      uint16_t raw16[4];
-      unsigned char raw8[8];
-    } data{0};
-    MeasRaw()
-      :data{ .raw64 = 0 }{};
-  
-    MeasRaw(uint64_t h64)
-      :data{ .raw64 = h64 }{};
-    // MeasRaw(unsigned char head, unsigned char brow, unsigned char col1, unsigned char col2, uint16_t adc1, uint16_t adc2)
-    //   :data{ .raw16[0]=adc2, .raw16[1]=adc1, .raw8[4]=col2, .raw8[5]=col1, .raw8[6]=brow, .raw8[7]=head}{};
-  
-    inline bool operator==(const MeasRaw &rh) const{
-      return data.raw64 == rh.data.raw64;
-    }
-
-    inline bool operator==(const uint64_t &rh) const{
-      return data.raw64 == rh;
-    }
-  
-    inline bool operator<(const MeasRaw &rh) const{
-      return data.raw64 < rh.data.raw64;
-    }
-
-    inline const uint64_t& raw64() const  {return data.raw64;}
-    inline const unsigned char& head() const  {return data.raw8[3];}
-    inline const unsigned char& brow() const  {return data.raw8[2];}
-    inline const unsigned char& col1() const  {return data.raw8[1];}
-    inline const unsigned char& col2() const  {return data.raw8[0];}
-    inline const uint16_t& adc1() const  {return data.raw16[1];} // raw8[7]<<8+raw8[6]
-    inline const uint16_t& adc2() const  {return data.raw16[0];} // raw8[5]<<8+raw8[4]
-    inline static void dropbyte(MeasRaw meas){
-      meas.data.raw64>>8;
-    }
-  };
-  
 
   MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout_idel, const std::chrono::milliseconds &timeout_idel){ //timeout_read_interval
   // std::fprintf(stderr, "-");
@@ -377,7 +337,6 @@ int main(int argc, char *argv[]) {
     throw;
   }
   std::fprintf(stdout, " connected\n");
-
   
   std::chrono::system_clock::time_point tp_timeout_exit  = std::chrono::system_clock::now() + std::chrono::seconds(exitTimeSecond);
 
@@ -389,20 +348,13 @@ int main(int argc, char *argv[]) {
       std::fprintf(stdout, "run %d seconds, nornal exit\n", exitTimeSecond);
       break;
     }
-    auto meas = readMeasRaw(fd_rx, tp_timeout, std::chrono::seconds(1));
-    
-    // auto df = rd->Read(std::chrono::seconds(1));
+    auto meas = readMeasRaw(fd_rx, tp_timeout, std::chrono::seconds(1));    
     if(meas==0){
       std::fprintf(stdout, "Data reveving timeout\n");
       continue;
     }
     if(do_rawPrint){
-      // std::fprintf(stdout, "DataFrame #%d, DeviceId #%hhu,  TriggerId #%hu, PayloadLen %u\n",
-      //              dataFrameN, df_pack[3],
-      //              *reinterpret_cast<const uint16_t*>(df_pack.data() + 8),
-      //              *reinterpret_cast<const uint32_t*>(df_pack.data() + 4));
       std::fprintf(stdout, "RawData_TCP_RX:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
-      // fromRaw(df_pack);
       // std::fflush(stdout);
     }
 

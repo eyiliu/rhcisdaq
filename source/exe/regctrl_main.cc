@@ -5,11 +5,10 @@
 
 #include <signal.h>
 
-#include "Layer.hh"
-
 #include "getopt.h"
 #include "linenoise.h"
 
+#include "Camera.hh"
 #include "TcpServ.hh"
 
 template<typename ... Args>

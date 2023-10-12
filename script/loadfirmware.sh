@@ -39,9 +39,10 @@ then
     echo "Configfs does not exist. Mounting configfs"
     mount -t configfs configfs /configfs
     if [ ! -d /configfs ]
+    then
        echo "ERROR: Unable to mount configfs. Please enable it in the kernel."
        exit -1
-    then
+    fi
 else
     echo "Configfs exists."
 fi

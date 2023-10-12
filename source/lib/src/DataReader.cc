@@ -14,6 +14,8 @@
 #include "DataReader.hh"
 
 
+
+
 #define HEADER_BYTE  (0b01010101)
 
 namespace{
@@ -32,7 +34,6 @@ namespace{
   std::string StringToHexString(const std::string& bin){
     return CStringToHexString(bin.data(), bin.size());
   }
-
 }
 
 
@@ -48,41 +49,42 @@ DataReader::DataReader(){
 
 bool DataReader::Open(){
   m_fd = open(m_file_path.c_str(), O_RDONLY | O_NONBLOCK);
-  if(!m_fd)
-    return false;
+  if(!m_fd){
+    std::fprintf(stderr, "Unable to open file: %s\n\n", m_file_path.c_str());
+    throw;
+  }
   return true;
 }
 
 void DataReader::Close(){
   if(!m_fd)
     return;
-
   close(m_fd);
   m_fd = 0;
 }
 
-std::vector<DataFrameSP> DataReader::Read(size_t size_max_pkg,
-                                           const std::chrono::milliseconds &timeout_idle,
-                                           const std::chrono::milliseconds &timeout_total){
-  std::chrono::system_clock::time_point tp_timeout_total = std::chrono::system_clock::now() + timeout_total;
-  std::vector<DataFrameSP> pkg_v;
-  while(1){
-    DataFrameSP pkg = Read(timeout_idle);
-    if(pkg){
-      pkg_v.push_back(pkg);
-      if(pkg_v.size()>=size_max_pkg){
-        break;
-      }
-    }
-    else{
-      break; 
-    }
-    if(std::chrono::system_clock::now() > tp_timeout_total){
-      break;
-    }
-  }
-  return pkg_v;
-}
+// std::vector<DataFrameSP> DataReader::Read(size_t size_max_pkg,
+//                                            const std::chrono::milliseconds &timeout_idle,
+//                                            const std::chrono::milliseconds &timeout_total){
+//   std::chrono::system_clock::time_point tp_timeout_total = std::chrono::system_clock::now() + timeout_total;
+//   std::vector<DataFrameSP> pkg_v;
+//   while(1){
+//     DataFrameSP pkg = Read(timeout_idle);
+//     if(pkg){
+//       pkg_v.push_back(pkg);
+//       if(pkg_v.size()>=size_max_pkg){
+//         break;
+//       }
+//     }
+//     else{
+//       break; 
+//     }
+//     if(std::chrono::system_clock::now() > tp_timeout_total){
+//       break;
+//     }
+//   }
+//   return pkg_v;
+// }
 
 
 MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout_idel, const std::chrono::milliseconds &timeout_idel){ //timeout_read_interval
@@ -132,7 +134,6 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
   return meas;
 }
 
-
 DataFrameSP DataReader::Read(const std::chrono::milliseconds &timeout_idle){ //timeout_read_interval  
   std::vector<MeasRaw> meas_col;
   while(1){
@@ -144,9 +145,16 @@ DataFrameSP DataReader::Read(const std::chrono::milliseconds &timeout_idle){ //t
       meas_col.clear();
       meas_col.reserve(64*32);
     }
-    meas_col.push_back(meas);    
+    meas_col.push_back(meas);
+    
     if(meas.isEndMeasRaw()){
+      if(meas_col.size()!=64*32){
+	std::fprintf(stderr, "ERROR: reach end package at size %d \n", meas_col.size());
+      }
       break;
+    }
+    if(meas_col.size()==64*32){
+      	std::fprintf(stderr, "ERROR: reach 64*32 packages, but no end%d \n");
     }
   }
   return std::make_shared<DataFrame>(std::move(meas_col));

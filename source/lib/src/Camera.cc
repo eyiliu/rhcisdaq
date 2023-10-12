@@ -36,26 +36,21 @@ Camera::~Camera(){
 
 void Camera::fw_start(){
   if(!m_fw) return;
-  // m_fw->SetCisRegister("CMU_DMU_CONF", 0x70);// token
-  // m_fw->SetCisRegister("CHIP_MODE", 0x3d); //trigger MODE
-  // m_fw->SetFirmwareRegister("FIRMWARE_MODE", 1); //run, fw forward trigger
+  info_print( " fw starting \n");
+  m_fw->SetFirmwareRegister("SCAN_ONCE", 1);
   info_print( " fw start \n");
 }
 
-
 void Camera::fw_stop(){
   if(!m_fw) return;
-  // m_fw->SetFirmwareRegister("FIRMWARE_MODE", 0); // stop trigger, fw goes into configure mode 
-  // m_fw->SetCisRegister("CHIP_MODE", 0x3c); // sensor goes to configure mode
-
-  info_print(" fw stop \n");
+  info_print(" fw stopping \n");
+  info_print(" fw stop done\n");
 }
 
 void Camera::fw_conf(){
   if(!m_fw) return;
   info_print( " fw conf \n");
-
- 
+  /*
   if(!m_jsdoc_conf.HasMember("firmware")){
     std::fprintf(stderr, "JSON configure file error: no firmware section \n");
     throw;
@@ -64,13 +59,14 @@ void Camera::fw_conf(){
   for(const auto &reg: js_fw_conf.GetObject()){
     m_fw->SetFirmwareRegister(reg.name.GetString(), reg.value.GetUint64());
   }
-
+  */
 }
 
 void Camera::fw_init(){
   if(!m_fw) return;  
-  
-  info_print("fw init \n");
+  info_print("fw initing \n");
+  m_fw->SetFirmwareRegister("SCAN_MODE", 1);  
+  info_print("fw init done\n");
 }
 
 void Camera::rd_start(){
@@ -93,6 +89,8 @@ void Camera::rd_stop(){
   m_is_async_watching = false;
   if(m_fut_async_watch.valid())
     m_fut_async_watch.get();
+  info_print("rd stop done\n");
+
 }
 
 uint64_t Camera::AsyncPushBack(){ // IMPROVE IT AS A RING
@@ -115,8 +113,20 @@ uint64_t Camera::AsyncPushBack(){ // IMPROVE IT AS A RING
   while (m_is_async_reading){
     auto df = m_rd? m_rd->Read(std::chrono::seconds(1)):nullptr; // TODO: read a vector
     if(!df){
+      std::cout<< "read timeout"<<std::endl;
       continue;
     }
+
+    if(m_df_print){
+      std::cout<<std::endl;
+      df->Print(std::cout, 0);
+      std::cout<<std::endl;    
+    }
+
+    if(m_skip_push){
+      continue;
+    }
+    
     m_st_n_ev_input_now ++;
 
     uint64_t next_p_ring_write = m_count_ring_write % m_size_ring;
@@ -125,7 +135,6 @@ uint64_t Camera::AsyncPushBack(){ // IMPROVE IT AS A RING
       m_st_n_ev_overflow_now ++;
       continue;
     }
-
     
     if(flag_wait_first_event){
       flag_wait_first_event = false;

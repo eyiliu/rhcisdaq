@@ -12,7 +12,8 @@
 
 
 #define FRONT_MEASRAW_32 (0x5500383c)
-#define END_MEASRAW_32 (0x55003307)
+#define END_MEASRAW_32 (0x553f0307)
+
 
 struct MeasRaw;
 struct MeasPixel;
@@ -116,11 +117,27 @@ public:
 };
 
 
-template <typename TA>
-rapidjson::GenericValue<rapidjson::UTF8<>, TA> DataFrame::JSON(TA &a) const{
-  rapidjson::GenericValue<rapidjson::UTF8<>, TA> js;
+template <typename Allocator>
+rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> DataFrame::JSON(Allocator &a) const{
+  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js;
+  js.SetObject();
+  js.AddMember("sensor", "rhcis1", a);
+  js.AddMember("region", "1", a);
+  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js_rcv_frame;
+  js_rcv_frame.SetArray();
+  for(const auto& [rc,v]: m_map_pos_adc){
+    rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js_rcv;
+    js_rcv.SetArray();
+    js_rcv.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(rc.first), a);
+    js_rcv.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(rc.second), a);
+    js_rcv.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(v), a);
+    js_rcv_frame.PushBack(std::move(js_rcv), a);
+  }
+  js.AddMember("rcv_frame", std::move(js_rcv_frame) , a);
+  //https://rapidjson.org/classrapidjson_1_1_generic_object.html
+  //https://rapidjson.org/md_doc_tutorial.html#CreateModifyValues
   return js;
-}
+};
 
 template <typename TA>
 void DataFrame::fromJSON(const rapidjson::GenericValue<rapidjson::UTF8<>, TA> &js){

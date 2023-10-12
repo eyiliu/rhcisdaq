@@ -9,7 +9,6 @@
 #include "linenoise.h"
 
 #include "Camera.hh"
-#include "TcpServ.hh"
 
 template<typename ... Args>
 static std::string FormatString( const std::string& format, Args ... args ){
@@ -59,6 +58,8 @@ example:
   C) stop  (set firmware and sensosr to stop-run state)
    > stop
 
+  D) scan  (scan once)
+   > scan
 
   1) get firmware regiester
    > firmware get FW_REG_NAME
@@ -66,13 +67,7 @@ example:
   2) set firmware regiester
    > firmware set FW_REG_NAME 10
 
-  3) get sensor regiester
-   > sensor get SN_REG_NAME
-
-  4) set sensor regiester
-   > sensor set SN_REG_NAME 10
-
-  5) exit/quit command line
+  3) exit/quit command line
    > quit
 
 )"
@@ -96,10 +91,8 @@ int main(int argc, char **argv){
   }
 
   ///////////////////////
-  std::unique_ptr<Camera> layer;
-  std::unique_ptr<TcpServer> tcpServer;
+  std::unique_ptr<Camera> cam;
   std::unique_ptr<DummyDump> dummyDump;
-  std::unique_ptr<TcpClientConn> tcpClient;
 
   auto history_file_path = std::filesystem::temp_directory_path();
   history_file_path /=".regctrl.history"; 
@@ -108,9 +101,9 @@ int main(int argc, char **argv){
                                    {
                                      static const char* examples[] =
                                        {"help", "quit", "exit", "info",
-                                        "init", "start", "stop",
-                                        "sensor", "firmware", "set", "get",
-                                        "tcpserver", "tcpclient", "dump",
+                                        "init", "start", "stop","scan",
+                                        "firmware", "set", "get",
+                                        "dump",
                                         NULL};
                                      size_t i;
                                      for (i = 0;  examples[i] != NULL; ++i) {
@@ -126,11 +119,11 @@ int main(int argc, char **argv){
     char* result = linenoise(prompt);
     if (result == NULL) {
       if(linenoiseKeyType()==1){
-        if(layer){
-          printf("stopping\n");
-          layer->fw_stop();
-          layer->rd_stop();
-          printf("done\n");
+        if(cam){
+          printf("ctrl: stopping\n");
+          cam->fw_stop();
+          cam->rd_stop();
+          printf("ctrl: done\n");
         }
         continue;
       }
@@ -147,88 +140,66 @@ int main(int argc, char **argv){
       fprintf(stdout, "%s", help_usage_linenoise.c_str());
     }
     else if ( std::regex_match(result, std::regex("\\s*(init)\\s*")) ){
-      printf("initializing\n");
+      printf("ctrl: initializing\n");
       dummyDump.reset();
-      tcpClient.reset();
-      tcpServer.reset();
-      layer.reset(new Camera());
-      layer->fw_init();
-      printf("done\n");
+      cam.reset(new Camera());
+      cam->fw_init();
+      printf("ctrl: done\n");
+    }
+    else if ( std::regex_match(result, std::regex("\\s*(scan)\\s*")) ){
+      if(cam){
+	printf("ctrl: scaning once\n");
+	cam->m_skip_push=1;
+	cam->m_df_print=1;	
+	cam->rd_start();
+        cam->fw_start();
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        cam->fw_stop();
+        cam->rd_stop();
+      }
     }
     else if ( std::regex_match(result, std::regex("\\s*(start)\\s*")) ){
-      if(layer){
-        printf("starting\n");
-        layer->rd_start();
-        layer->fw_start();
-        printf("done\n");
+      if(cam){
+        printf("ctrl: starting\n");
+        cam->rd_start();
+        cam->fw_start();
+        printf("ctrl: done\n");
       }
     }
     else if ( std::regex_match(result, std::regex("\\s*(stop)\\s*")) ){
-      if(layer){
-        printf("stopping\n");
-        layer->fw_stop();
-        layer->rd_stop();
-        printf("done\n");
+      if(cam){
+        printf("ctrl: stopping\n");
+        cam->fw_stop();
+        cam->rd_stop();
+        printf("ctrl: done\n");
       }
     }
     else if ( std::regex_match(result, std::regex("\\s*(info)\\s*"))){
-      if(layer)
-        std::cout<< layer->GetStatusString()<<std::endl;
+      if(cam)
+        std::cout<<cam->GetStatusString()<<std::endl;
     }
     else if ( std::regex_match(result, std::regex("\\s*(dump)\\s+(start)\\s*"))){
-      if(layer)
-        dummyDump = std::make_unique<DummyDump>(layer.get());
+      if(cam)
+        dummyDump = std::make_unique<DummyDump>(cam.get());
     }
     else if ( std::regex_match(result, std::regex("\\s*(dump)\\s+(stop)\\s*"))){
       dummyDump.reset();
-    }
-    else if ( std::regex_match(result, std::regex("\\s*(tcpserver)\\s+(start)\\s*"))){
-      if(layer)
-        tcpServer = std::make_unique<TcpServer>(layer.get(), 9000);
-    }
-    else if ( std::regex_match(result, std::regex("\\s*(tcpserver)\\s+(stop)\\s*"))){
-      tcpServer.reset();
-    }
-    else if ( std::regex_match(result, std::regex("\\s*(tcpclient)\\s+(start)\\s*"))){
-      tcpClient = std::make_unique<TcpClientConn>("127.0.0.1", 9000);
-    }
-    else if ( std::regex_match(result, std::regex("\\s*(tcpclient)\\s+(stop)\\s*"))){
-      tcpClient.reset();
-    }
-
-    else if ( std::regex_match(result, std::regex("\\s*(sensor)\\s+(set)\\s+(\\w+)\\s+(?:(0[Xx])?([0-9]+))\\s*")) ){
-      std::cmatch mt;
-      std::regex_match(result, mt, std::regex("\\s*(sensor)\\s+(set)\\s+(\\w+)\\s+(?:(0[Xx])?([0-9]+))\\s*"));
-      std::string name = mt[3].str();
-      if(layer && layer->m_fw){
-        uint64_t value = std::stoull(mt[5].str(), 0, mt[4].str().empty()?10:16);
-        // layer->m_fw->SetCisRegister(name, value);
-      }
-    }
-    else if ( std::regex_match(result, std::regex("\\s*(sensor)\\s+(get)\\s+(\\w+)\\s*")) ){
-      std::cmatch mt;
-      std::regex_match(result, mt, std::regex("\\s*(sensor)\\s+(get)\\s+(\\w+)\\s*"));
-      std::string name = mt[3].str();
-      if(layer && layer->m_fw){
-        // uint64_t value = layer->m_fw->GetCisRegister(name);
-        // fprintf(stderr, "%s = %llu, %#llx\n", name.c_str(), value, value);
-      }
     }
     else if ( std::regex_match(result, std::regex("\\s*(firmware)\\s+(set)\\s+(\\w+)\\s+(?:(0[Xx])?([0-9]+))\\s*")) ){
       std::cmatch mt;
       std::regex_match(result, mt, std::regex("\\s*(firmware)\\s+(set)\\s+(\\w+)\\s+(?:(0[Xx])?([0-9]+))\\s*"));
       std::string name = mt[3].str();
-      if(layer && layer->m_fw){
+      if(cam && cam->m_fw){
         uint64_t value = std::stoull(mt[5].str(), 0, mt[4].str().empty()?10:16);
-        layer->m_fw->SetFirmwareRegister(name, value);
+        cam->m_fw->SetFirmwareRegister(name, value);
       }
     }
     else if ( std::regex_match(result, std::regex("\\s*(firmware)\\s+(get)\\s+(\\w+)\\s*")) ){
       std::cmatch mt;
       std::regex_match(result, mt, std::regex("\\s*(firmware)\\s+(get)\\s+(\\w+)\\s*"));
       std::string name = mt[3].str();
-      if(layer && layer->m_fw){
-        uint64_t value = layer->m_fw->GetFirmwareRegister(name);
+      if(cam &&cam->m_fw){
+        uint64_t value = cam->m_fw->GetFirmwareRegister(name);
         fprintf(stderr, "%s = %llu, %#llx\n", name.c_str(), value, value);
       }
     }
@@ -244,11 +215,9 @@ int main(int argc, char **argv){
   //linenoiseHistorySave(history_file_path.c_str());
   linenoiseHistoryFree();
 
-  printf("resetting from main thread.");
+  printf("reset signal from main thread.\n\n");
   dummyDump.reset();
-  tcpClient.reset();
-  tcpServer.reset();
-  layer.reset();
+  cam.reset();
 
   return 0;
 }
@@ -261,9 +230,9 @@ struct DummyDump{
   DummyDump() = delete;
   DummyDump(const DummyDump&) =delete;
   DummyDump& operator=(const DummyDump&) =delete;
-  DummyDump(Camera *layer){
+  DummyDump(Camera *cam){
     isRunning = true;
-    fut = std::async(std::launch::async, &DummyDump::AsyncDump, &isRunning, layer);
+    fut = std::async(std::launch::async, &DummyDump::AsyncDump, &isRunning, cam);
   }
   ~DummyDump(){
     if(fut.valid()){
@@ -272,7 +241,7 @@ struct DummyDump{
     }
   }
 
-  static uint64_t AsyncDump(bool* isDumping, Camera* layer){
+  static uint64_t AsyncDump(bool* isDumping, Camera* cam){
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
     // std::string now_str = TimeNowString("%y%m%d%H%M%S");
@@ -280,10 +249,10 @@ struct DummyDump{
     uint64_t n_ev = 0;
     *isDumping = true;
     while (*isDumping){
-      auto &ev_front = layer->Front();
+      auto &ev_front = cam->Front();
       if(ev_front){
-        // ev_sync.push_back(ev_front);
-        layer->PopFront();
+        ev_front->Print(std::cout,0);
+        cam->PopFront();
         n_ev++;
       }
       else{

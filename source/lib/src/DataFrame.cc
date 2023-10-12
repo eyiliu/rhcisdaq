@@ -66,7 +66,6 @@ void DataFrame::fromMeasRaws(const std::vector<MeasRaw>& meas_col){
     m_pixel_col.push_back(pix0);
     m_pixel_col.push_back(pix1);
   }
-
 }
 
 

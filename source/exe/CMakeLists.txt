@@ -1,16 +1,16 @@
-add_executable(regctrl_main regctrl_main.cc)
-target_link_libraries(regctrl_main PRIVATE datactrl-fe mycommon stdc++fs)
+add_executable(rhcisctrl regctrl_main.cc)
+target_link_libraries(rhcisctrl PRIVATE datactrl-fe mycommon stdc++fs)
 
-add_executable(dmarx_dump dmarx_dump.cc)
+# add_executable(dmarx_dump dmarx_dump.cc)
 
-target_include_directories(dmarx_dump
-  PRIVATE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
-  )
-target_link_libraries(dmarx_dump PRIVATE mycommon datactrl-fe stdc++fs Threads::Threads)
+# target_include_directories(dmarx_dump
+#   PRIVATE
+#   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+#   )
+# target_link_libraries(dmarx_dump PRIVATE mycommon datactrl-fe stdc++fs Threads::Threads)
 
 
-install(TARGETS regctrl_main dmarx_dump
+install(TARGETS rhcisctrl
   EXPORT ${PROJECT_NAME}Targets
   RUNTIME       DESTINATION bin      COMPONENT runtime
   LIBRARY       DESTINATION lib      COMPONENT runtime

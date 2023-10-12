@@ -12,11 +12,10 @@ static const std::string reg_cmd_list_content =
   ;
 
 FirmwarePortal::FirmwarePortal(const std::string &json_str){
-  std::cout<< "firmwareportal construction"<< json_str<<std::endl;
   if(json_str == "builtin"){
     m_json.Parse(reg_cmd_list_content.c_str());
-    std::cout<< "<<<<<<"<<reg_cmd_list_content<<std::endl;
-    std::cout<< "<<<<<<"<<std::endl;
+    // std::cout<< "<<<<<<"<<reg_cmd_list_content<<std::endl;
+    // std::cout<< "<<<<<<"<<std::endl;
   }
   else{
     m_json.Parse(json_str.c_str());

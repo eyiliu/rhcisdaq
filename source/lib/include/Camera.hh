@@ -38,6 +38,9 @@ public:
 
   std::string m_st_string;
   std::mutex m_mtx_st;
+
+  bool m_skip_push{0};
+  bool m_df_print{0};
 public:
   ~Camera();
   Camera();

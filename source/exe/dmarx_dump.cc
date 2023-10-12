@@ -17,7 +17,6 @@
 #include "getopt.h"
 #include "DataFrame.hh"
 
-//8'b0101_0101
 #define HEADER_BYTE  (0b01010101)
 
 
@@ -32,6 +31,49 @@ using std::size_t;
 #endif
 #define debug_print(fmt, ...)                                           \
   do { if (DEBUG_PRINT) std::fprintf(stdout, fmt, ##__VA_ARGS__); } while (0)
+
+
+std::FILE* createfile_and_open(std::filesystem::path filepath){
+  std::FILE *fp = nullptr;
+  if(filepath.empty()){
+    std::fprintf(stderr, "Empty filepath\n\n");
+    throw;  
+  }
+  std::filesystem::path path_dir_output = std::filesystem::absolute(filepath).parent_path();
+  std::filesystem::file_status st_dir_output =
+    std::filesystem::status(path_dir_output);
+  if (!std::filesystem::exists(st_dir_output)) {
+    std::fprintf(stdout, "Output folder does not exist: %s\n\n",
+		 path_dir_output.c_str());
+    std::filesystem::file_status st_parent =
+      std::filesystem::status(path_dir_output.parent_path());
+    if (std::filesystem::exists(st_parent) &&
+	std::filesystem::is_directory(st_parent)) {
+      if (std::filesystem::create_directory(path_dir_output)) {
+	std::fprintf(stdout, "Create output folder: %s\n\n", path_dir_output.c_str());
+      } else {
+	std::fprintf(stderr, "Unable to create folder: %s\n\n", path_dir_output.c_str());
+	throw;
+      }
+    } else {
+      std::fprintf(stderr, "Unable to create folder: %s\n\n", path_dir_output.c_str());
+      throw;
+    }
+  }
+
+  std::filesystem::file_status st_file = std::filesystem::status(filepath);
+  if (std::filesystem::exists(st_file)) {
+    std::fprintf(stderr, "File < %s > exists.\n\n", filepath.c_str());
+    throw;
+  }
+
+  fp = std::fopen(filepath.c_str(), "w");
+  if (!fp) {
+    std::fprintf(stderr, "File opening failed: %s \n\n", filepath.c_str());
+    throw;
+  }
+  return fp;
+}
 
 
 static sig_atomic_t g_done = 0;
@@ -124,51 +166,51 @@ namespace{
 
 
   MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout_idel, const std::chrono::milliseconds &timeout_idel){ //timeout_read_interval
-  // std::fprintf(stderr, "-");
-  MeasRaw meas;
-  size_t size_buf = sizeof(meas);
-  size_t size_filled = 0;  
-  bool can_time_out = false;
-  int read_len_real = 0;
-  while(size_filled < size_buf){
-    read_len_real = read(fd_rx, &(meas.data.raw8[size_filled]), size_buf-size_filled);
-    if(read_len_real>0){
-      // debug_print(">>>read  %d Bytes \n", read_len_real);
-      size_filled += read_len_real;
-      can_time_out = false; // with data incomming, timeout counter is reset and stopped. 
-      // if(meas.head() != HEADER_BYTE){
-      // 	std::fprintf(stderr, "ERROR<%s>: wrong header of dataword, skip\n", __func__);
-      // 	// std::fprintf(stderr, "RawData_TCP_RX:\n%s\n", StringToHexString(buf).c_str());
-      // 	MeasRaw::dropbyte(meas); //shift and remove a byte  
-      // 	size_filled -= 1;
-      // 	continue;
-      // }
-    }
-    else if (read_len_real== 0 || (read_len_real < 0 && errno == EAGAIN)){ // empty readback, read again
-      if(!can_time_out){ // first hit here, if timeout counter was not yet started.
-	can_time_out = true;
-	tp_timeout_idel = std::chrono::system_clock::now() + timeout_idel; // start timeout counter
-      }
-      else{
-	if(std::chrono::system_clock::now() > tp_timeout_idel){ // timeout overflow reached
-	  if(size_filled == 0){
-	    // debug_print("INFO<%s>: no data receving.\n",  __func__);
-	    return MeasRaw(0);
-	  }
-	  std::fprintf(stderr, "ERROR<%s>: timeout error of incomplete data reading \n", __func__ );
-	  std::fprintf(stderr, "=");
-	  return MeasRaw(0);
+    // std::fprintf(stderr, "-");
+    MeasRaw meas;
+    size_t size_buf = sizeof(meas);
+    size_t size_filled = 0;  
+    bool can_time_out = false;
+    int read_len_real = 0;
+    while(size_filled < size_buf){
+      read_len_real = read(fd_rx, &(meas.data.raw8[size_filled]), size_buf-size_filled);
+      if(read_len_real>0){
+	// debug_print(">>>read  %d Bytes \n", read_len_real);
+	size_filled += read_len_real;
+	can_time_out = false; // with data incomming, timeout counter is reset and stopped. 
+	if(size_filled >=4 && meas.head() != HEADER_BYTE){	
+	  std::fprintf(stderr, "ERROR<%s>: wrong header of dataword (%s), shift one byte to be ", __func__, binToHexString((char*)(meas.data.raw8), size_filled).c_str());
+	  MeasRaw::dropbyte(meas); //shift and remove a byte 
+	  std::fprintf(stderr, "(%s)\n", binToHexString((char*)(meas.data.raw8), size_filled).c_str());
+	  size_filled -= 1;
+	  continue;
 	}
       }
-      continue;
+      else if (read_len_real== 0 || (read_len_real < 0 && errno == EAGAIN)){ // empty readback, read again
+	if(!can_time_out){ // first hit here, if timeout counter was not yet started.
+	  can_time_out = true;
+	  tp_timeout_idel = std::chrono::system_clock::now() + timeout_idel; // start timeout counter
+	}
+	else{
+	  if(std::chrono::system_clock::now() > tp_timeout_idel){ // timeout overflow reached
+	    if(size_filled == 0){
+	      // debug_print("INFO<%s>: no data receving.\n",  __func__);
+	      return MeasRaw(0);
+	    }
+	    std::fprintf(stderr, "ERROR<%s>: timeout error of incomplete data reading \n", __func__ );
+	    std::fprintf(stderr, "=");
+	    return MeasRaw(0);
+	  }
+	}
+	continue;
+      }
+      else{
+	std::fprintf(stderr, "ERROR<%s>: read(...) returns error code %d\n", __func__,  errno);
+	throw;
+      }
     }
-    else{
-      std::fprintf(stderr, "ERROR<%s>: read(...) returns error code %d\n", __func__,  errno);
-      throw;
-    }
+    return meas;
   }
-  return meas;
-}
 
 }
 
@@ -199,9 +241,11 @@ int main(int argc, char *argv[]) {
   signal(SIGINT, [](int){g_done+=1;});
 
   std::string rawFilePath;
+  std::string formatFilePath;
   std::string ipAddressStr;
   int exitTimeSecond = 10;
   bool do_rawPrint = false;
+  bool do_formatPrint = false;
 
   int do_verbose = 0;
   {////////////getopt begin//////////////////
@@ -209,6 +253,8 @@ int main(int argc, char *argv[]) {
                                 {"verbose",   no_argument, NULL, 'v'},//val
                                 {"rawPrint",  no_argument, NULL, 's'},
                                 {"rawFile",   required_argument, NULL, 'f'},
+                                {"formatPrint",   required_argument, NULL, 'S'},
+                                {"formatFile",   required_argument, NULL, 'F'},
                                 {"exitTime",  required_argument, NULL, 'e'},
                                 {0, 0, 0, 0}};
 
@@ -225,16 +271,22 @@ int main(int argc, char *argv[]) {
       //   std::fprintf(stdout, "opt:%s,\targ:%s\n", longopts[longindex].name, optarg);;
       // }
       switch (c) {
-      case 'f':
-        rawFilePath = optarg;
-        break;
       case 'e':
         exitTimeSecond = std::stoi(optarg);
+        break;
+      case 'f':
+        rawFilePath = optarg;
         break;
       case 's':
         do_rawPrint = true;
         break;
-        // help and verbose
+      case 'F':
+        formatFilePath = optarg;
+        break;
+      case 'S':
+        do_formatPrint = true;
+        break;
+	// help and verbose
       case 'v':
         do_verbose=1;
         //option is set to no_argument
@@ -284,52 +336,21 @@ int main(int argc, char *argv[]) {
   std::fprintf(stdout, "\n");
   std::fprintf(stdout, "rawPrint:  %d\n", do_rawPrint);
   std::fprintf(stdout, "rawFile:   %s\n", rawFilePath.c_str());
+  std::fprintf(stdout, "formatPrint:  %d\n", do_formatPrint);
+  std::fprintf(stdout, "formatFile:   %s\n", formatFilePath.c_str());
   std::fprintf(stdout, "\n");
 
-  // if (rawFilePath.empty() && !do_rawPrint) {
-  //   std::fprintf(stderr, "ERROR: neither rawPrint or rawFile is set.\n\n");
-  //   std::fprintf(stderr, "%s\n", help_usage.c_str());
-  //   std::exit(1);
-  // }
 
-  std::FILE *fp = nullptr;
+  std::FILE *raw_fp = nullptr;
   if(!rawFilePath.empty()){
-    std::filesystem::path filepath(rawFilePath);
-    std::filesystem::path path_dir_output = std::filesystem::absolute(filepath).parent_path();
-    std::filesystem::file_status st_dir_output =
-      std::filesystem::status(path_dir_output);
-    if (!std::filesystem::exists(st_dir_output)) {
-      std::fprintf(stdout, "Output folder does not exist: %s\n\n",
-                   path_dir_output.c_str());
-      std::filesystem::file_status st_parent =
-        std::filesystem::status(path_dir_output.parent_path());
-      if (std::filesystem::exists(st_parent) &&
-          std::filesystem::is_directory(st_parent)) {
-        if (std::filesystem::create_directory(path_dir_output)) {
-          std::fprintf(stdout, "Create output folder: %s\n\n", path_dir_output.c_str());
-        } else {
-          std::fprintf(stderr, "Unable to create folder: %s\n\n", path_dir_output.c_str());
-          throw;
-        }
-      } else {
-        std::fprintf(stderr, "Unable to create folder: %s\n\n", path_dir_output.c_str());
-        throw;
-      }
-    }
-
-    std::filesystem::file_status st_file = std::filesystem::status(filepath);
-    if (std::filesystem::exists(st_file)) {
-      std::fprintf(stderr, "File < %s > exists.\n\n", filepath.c_str());
-      throw;
-    }
-
-    fp = std::fopen(filepath.c_str(), "w");
-    if (!fp) {
-      std::fprintf(stderr, "File opening failed: %s \n\n", filepath.c_str());
-      throw;
-    }
+    raw_fp=createfile_and_open(rawFilePath);
   }
 
+  std::FILE *format_fp = nullptr;
+  if(!formatFilePath.empty()){
+    format_fp=createfile_and_open(formatFilePath);
+  }
+  
   std::fprintf(stdout, " connecting to %s\n", "/dev/axidmard");
   int fd_rx = open("/dev/axidmard", O_RDONLY | O_NONBLOCK);
   if(!fd_rx){
@@ -348,22 +369,30 @@ int main(int argc, char *argv[]) {
       std::fprintf(stdout, "run %d seconds, nornal exit\n", exitTimeSecond);
       break;
     }
+
     auto meas = readMeasRaw(fd_rx, tp_timeout, std::chrono::seconds(1));    
     if(meas==0){
       std::fprintf(stdout, "Data reveving timeout\n");
       continue;
     }
+    if(do_formatPrint){
+      std::fprintf(stdout, "FormatData:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
+      // std::fflush(stdout);
+    }
     if(do_rawPrint){
       std::fprintf(stdout, "RawData_TCP_RX:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
       // std::fflush(stdout);
-    }
-
+    }    
   }
   
   close(fd_rx);
-  if(fp){
-    std::fflush(fp);
-    std::fclose(fp);
+  if(raw_fp){
+    std::fflush(raw_fp);
+    std::fclose(raw_fp);
+  }
+  if(format_fp){
+    std::fflush(format_fp);
+    std::fclose(format_fp);
   }
 
   g_done= 1;

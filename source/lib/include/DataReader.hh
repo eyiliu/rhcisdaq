@@ -15,9 +15,9 @@ public:
 
   DataFrameSP Read(const std::chrono::milliseconds &timeout);
 
-  std::vector<DataFrameSP> Read(size_t size_max_pkg,
-                                const std::chrono::milliseconds &timeout_idle,
-                                const std::chrono::milliseconds &timeout_total);
+  // std::vector<DataFrameSP> Read(size_t size_max_pkg,
+  //                               const std::chrono::milliseconds &timeout_idle,
+  //                               const std::chrono::milliseconds &timeout_total);
 
   bool Open();
   void Close();

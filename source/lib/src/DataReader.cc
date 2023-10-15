@@ -14,6 +14,17 @@
 #include "DataReader.hh"
 
 
+#ifndef DEBUG_PRINT
+#define DEBUG_PRINT 1
+#endif
+#define debug_print(fmt, ...)                                           \
+  do { if (DEBUG_PRINT) std::fprintf(stdout, fmt, ##__VA_ARGS__); } while (0)
+
+#ifndef INFO_PRINT
+#define INFO_PRINT 1
+#endif
+#define info_print(fmt, ...)                                           \
+  do { if (INFO_PRINT) std::fprintf(stdout, fmt, ##__VA_ARGS__); } while (0)
 
 
 #define HEADER_BYTE  (0b01010101)
@@ -63,29 +74,6 @@ void DataReader::Close(){
   m_fd = 0;
 }
 
-// std::vector<DataFrameSP> DataReader::Read(size_t size_max_pkg,
-//                                            const std::chrono::milliseconds &timeout_idle,
-//                                            const std::chrono::milliseconds &timeout_total){
-//   std::chrono::system_clock::time_point tp_timeout_total = std::chrono::system_clock::now() + timeout_total;
-//   std::vector<DataFrameSP> pkg_v;
-//   while(1){
-//     DataFrameSP pkg = Read(timeout_idle);
-//     if(pkg){
-//       pkg_v.push_back(pkg);
-//       if(pkg_v.size()>=size_max_pkg){
-//         break;
-//       }
-//     }
-//     else{
-//       break; 
-//     }
-//     if(std::chrono::system_clock::now() > tp_timeout_total){
-//       break;
-//     }
-//   }
-//   return pkg_v;
-// }
-
 
 MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout_idel, const std::chrono::milliseconds &timeout_idel){ //timeout_read_interval
   // std::fprintf(stderr, "-");
@@ -96,16 +84,19 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
   int read_len_real = 0;
   while(size_filled < size_buf){
     read_len_real = read(fd_rx, &(meas.data.raw8[size_filled]), size_buf-size_filled);
+
     if(read_len_real>0){
-      // debug_print(">>>read  %d Bytes \n", read_len_real);
+      debug_print(">>>read  %d Bytes: (%s) \n", read_len_real, CStringToHexString((char*)(&(meas.data.raw8[size_filled])), read_len_real).c_str());
       size_filled += read_len_real;
-      can_time_out = false; // with data incomming, timeout counter is reset and stopped. 
-      if(size_filled >=4 && meas.head() != HEADER_BYTE){	
+      can_time_out = false; // with data incomming, timeout counter is reset and stopped.
+      if(!DEBUG_PRINT){
+      if(size_filled >=4 && meas.head() != HEADER_BYTE){
 	std::fprintf(stderr, "ERROR<%s>: wrong header of dataword (%s), shift one byte to be ", __func__, CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
 	MeasRaw::dropbyte(meas); //shift and remove a byte 
 	size_filled -= 1;
 	std::fprintf(stderr, "(%s)\n", CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
 	continue;
+      }
       }
     }
     else if (read_len_real== 0 || (read_len_real < 0 && errno == EAGAIN)){ // empty readback, read again
@@ -131,6 +122,7 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
       throw;
     }
   }
+  debug_print(">>>finish package: (%s) \n", CStringToHexString((char*)(&(meas.data.raw8[0])), 8).c_str());
   return meas;
 }
 

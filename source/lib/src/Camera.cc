@@ -37,7 +37,7 @@ Camera::~Camera(){
 void Camera::fw_start(){
   if(!m_fw) return;
   info_print( " fw starting \n");
-  m_fw->SetFirmwareRegister("SCAN_ONCE", 1);
+  m_fw->SetFirmwareRegister("SCAN_START", 1);
   info_print( " fw start \n");
 }
 
@@ -65,9 +65,13 @@ void Camera::fw_conf(){
 void Camera::fw_init(){
   if(!m_fw) return;  
   info_print("fw initing \n");
-  m_fw->SetFirmwareRegister("SCAN_MODE", 1);  
+
+  m_fw->SetFirmwareRegister("SCAN_COUNT_MODE", 1); //counting mode 
+  m_fw->SetFirmwareRegister("SCAN_FRAMES_N", 1);//1 frame per start
+  m_fw->SetFirmwareRegister("SCAN_FRAME_TYPE", 1); //normal type  
   info_print("fw init done\n");
 }
+
 
 void Camera::rd_start(){
   if(m_is_async_reading){

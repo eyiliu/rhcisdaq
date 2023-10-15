@@ -103,8 +103,8 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
       if(size_filled >=4 && meas.head() != HEADER_BYTE){	
 	std::fprintf(stderr, "ERROR<%s>: wrong header of dataword (%s), shift one byte to be ", __func__, CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
 	MeasRaw::dropbyte(meas); //shift and remove a byte 
-	std::fprintf(stderr, "(%s)\n", CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
 	size_filled -= 1;
+	std::fprintf(stderr, "(%s)\n", CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
 	continue;
       }
     }

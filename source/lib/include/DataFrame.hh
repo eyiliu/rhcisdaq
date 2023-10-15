@@ -66,7 +66,7 @@ struct MeasRaw{
   inline const unsigned char& col1() const  {return data.raw8[0];}
   inline const uint16_t& adc0() const  {return data.raw16[3];} // raw8[7]<<8+raw8[6]
   inline const uint16_t& adc1() const  {return data.raw16[2];} // raw8[5]<<8+raw8[4]
-  inline static void dropbyte(MeasRaw meas){
+  inline static void dropbyte(MeasRaw &meas){
     meas.data.raw64>>8;
   }
 

@@ -8,7 +8,7 @@
     "FIRMWARE_REG_LIST":[
 	
 	{
-	    "name":"SCAN_ONCE",
+	    "name":"SCAN_START",
 	    "address":"0x0000",
 	    "bytes":1,
 	    "read":false,
@@ -16,7 +16,7 @@
 	    "description":""
 	},
 	{
-	    "name":"SCAN_MODE",
+	    "name":"SCAN_FRAME_TYPE",
 	    "address":"0x0004",
 	    "bytes":1,
 	    "read":true,
@@ -63,6 +63,182 @@
 	    "read":false,
 	    "write":true,
 	    "description":""
-	}
+	},
+	{
+	    "name":"SCAN_COUNT_MODE",
+	    "address":"0x001c",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"SCAN_FRAMES_N",
+	    "address":"0x0020",
+	    "bytes":4,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"SCAN_STOP",
+	    "address":"0x0024",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"SCAN_INTERVAL",
+	    "address":"0x0028",
+	    "bytes":4,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"SCAN_STATUS_BUSY",
+	    "address":"0x002c",
+	    "bytes":1,
+	    "read":true,
+	    "write":false,
+	    "description":""
+	},
+	{
+	    "name":"SCAN_FRAMES_REMAIN",
+	    "address":"0x0030",
+	    "bytes":4,
+	    "read":true,
+	    "write":false,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH0",
+	    "address":"0x0040",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH1",
+	    "address":"0x0044",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH2",
+	    "address":"0x0048",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH3",
+	    "address":"0x004c",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH4",
+	    "address":"0x0050",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH5",
+	    "address":"0x0054",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH6",
+	    "address":"0x0058",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH7",
+	    "address":"0x005c",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH8",
+	    "address":"0x0060",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH9",
+	    "address":"0x0064",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH10",
+	    "address":"0x0068",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH11",
+	    "address":"0x006c",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH12",
+	    "address":"0x0070",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH13",
+	    "address":"0x0074",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH14",
+	    "address":"0x0078",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	},
+	{
+	    "name":"ADC_ADJUST_CH15",
+	    "address":"0x007c",
+	    "bytes":1,
+	    "read":false,
+	    "write":true,
+	    "description":""
+	}	
     ]
 }

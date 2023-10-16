@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>testTitle</title>
+    <meta content="" name="description" />
+    <meta content="" name="keywords" />
+    <script type="text/javascript"></script>
+    <script type="text/javascript"></script>
+    <style>
+        button{padding:3px 10px;color:#ffffff;background-color: #6bbe99;margin-top:8px;margin-bottom:8px;
+            border-radius: 5px;border: 1px #ffffff solid;}
+        button:active{background-color: #60dea1;}
+        input{border-radius: 5px;border: 1px #bbb9b9 solid;padding:3px;font-size: 15px;outline: none;}
+        textarea{padding: 8px;border:1px #bbb9b9 solid;color: #757474;border-radius: 3px;outline: none;}
+		div{padding:0;margin:0;font-size: 15px;}
+        .showAndArgDiv{width:45%;height:300px;border:1px #bbb9b9 solid;display: inline-block;vertical-align: top;padding: 5px;}
+        select{border-radius: 5px;border: 1px #f2edf1 solid;background-color: #ffffff;}
+        .classL{color: #73bace;}
+
+        #historyList { width: 500px;height: 150px;border: 1px solid black;overflow-y: scroll;}
+
+        #inputBox { width: 300px;padding: 8px;}
+
+        #historyList {
+            position: absolute;color: #414040;
+            top: 30px;
+            left: 0;
+            line-height: 20px;
+            max-height: 150px;
+            overflow-y: auto;
+            background-color: rgb(255, 255, 255);
+            border: 1px solid #dedede;
+            z-index: 1;
+            display: none; /* 默认隐藏下拉悬浮框 */
+        }
+
+        #historyList p {margin: 0;
+            padding: 5px;height:20px;line-height:20px;font-size: 13px;vertical-align: middle;width: 97%;display: inline-block;
+            border-bottom: 1px solid rgba(220, 220, 220, 0.53);
+            cursor: pointer; /* 鼠标指针变为手形 */
+        }
+
+        #historyList p:last-child {
+            border-bottom: none;
+        }
+        .highlight {
+            background-color: rgba(255, 255, 0, 0.14);
+        }
+        input[type="button"]{cursor: pointer;}
+        input[type="button"]:active{background-color: #ffffff;}
+    </style>
+</head>
+<body style="width:100%;text-align:center;">
+<form id="form1" style="width:100%;display:inline-block;line-height: 25px;">
+</form>
+<div style="width:100%;height:330px;">
+    <div id="showDiv" class="showAndArgDiv" style="">div1</div>
+    <div class="showAndArgDiv" style="line-height: 50px;text-align: left;">
+        <div style="width:98%;height:80%;text-align: center;">
+            <label style="margin-left: 30px;">Ncount:<input id="arg1" name="arg" value="1000" style="width:100px;"/></label>
+            <label style="margin-left: 30px;">arg2:<input id="arg2" name="arg" style="width:100px;"/></label>
+            </br>
+            <label style="margin-left: 30px;">arg3:<input id="arg3" name="arg" style="width:100px;"/></label>
+            <label style="margin-left: 30px;">arg4:<input id="arg4" name="arg" style="width:100px;"/></label>
+            </br>
+            <label style="margin-left: 30px;">arg5:<input id="arg5" name="arg" style="width:100px;"/></label>
+            <label style="margin-left: 30px;">arg6:<input id="arg6" name="arg" style="width:100px;"/></label>
+        </div>
+        <div style="width:98%;height:18%;text-align: center;">
+            <input id="set_arg" type="button" title="send msg to server" style="margin-left: 20px;" value="set TH1F"/>
+            <input id="get_TH1F" type="button" title="get from server" style="margin-left: 20px;" value="get TH1F"/>
+            <input id="reset_TH1F" type="button" title="get from server" style="margin-left: 20px;" value="random TH1F"/>
+        </div>
+    </div>
+</div>
+<div style="width:100%;height:500px;display: inline-block;text-align: left;">
+    <div style="width:80%;height:550px;display: inline-block;margin-left: 5%;text-align: left;">
+        <label style="width:70%;height: 50px;position: relative;">
+            <input id="inputBox" autocomplete="on" name="commandInput" style="width:100%;" value=""/>
+            <label style="color:#bdbbbb;position: absolute;top:0px;left:-37px;">命令:</label>
+            <div id="historyList" style="position: absolute;display: none;height: auto;max-height: 200px;overflow-y: scroll;"></div>
+        </label>
+        <label style="width:70%;height: 300px;position: relative;margin-top: 10px;">
+            <label style="color:#bdbbbb;position: absolute;top:-295px;left:-37px;">结果:</label>
+            <label id ="clearLog" style="color:#dadada;position: absolute;top:-275px;left:-37px;cursor: pointer;">清空</label>
+            <textarea id="log" style="width:100%;height:270px;margin-top: 10px;"></textarea>
+        </label>
+    </div>
+</div>
+<div id="testDiv" style="width:100%;height:auto;display: inline-block;text-align: left;">
+
+</div>
+
+<script type='module'>
+    import { httpRequest, redraw, cleanup } from './jsrootsys/modules/main.mjs';
+    function getDomById(id){return document.getElementById(id);}
+    function getValueById(id){return document.getElementById(id).value;}
+
+    let path = window.location.href;
+    path = path.replace("http://", "ws://") + "root.websocket";
+    console.log('starting socket ' + path);
+    let socket = new WebSocket(path);
+
+
+    let args = document.getElementsByName("arg");
+    for (let n = 0; n < args.length; ++n) {
+        if(localStorage.getItem('root_'+'arg'+n)){args[n].value=localStorage.getItem('root_'+'arg'+n);}
+        args[n].addEventListener("change",function (){localStorage.setItem('root_'+'arg'+n, args[n].value);});
+    }
+
+    let highlightedIndex = 0;
+
+    var historyList = document.getElementById('historyList');
+    var inputBox = document.getElementById('inputBox');
+    const prefix = 'historyRoot_';
+    // 监听输入框的键盘事件
+    inputBox.addEventListener('keydown', function(e) {
+        if (e.keyCode === 13) { // Enter 键的 keyCode 是 13
+            let command = inputBox.value;
+            if (command) { // 如果输入框不为空
+                addToHistory(command); // 将输入添加到历史记录
+                inputBox.value = ''; // 清空输入框
+                hideHistory();
+                let sendMsg = jsonForMsgAndFormData(command);
+                if (socket._ready) socket.send(sendMsg);
+            }
+        } else if (e.key=='ArrowUp') { // 上箭头键的 keyCode 是 38 e.keyCode === 38
+            showHistory();
+            var previousInput = getPreviousInput(e);
+            if (previousInput) { // 如果有之前的输入
+                inputBox.value = previousInput; // 将输入框设置为之前的输入
+            }
+        } else if (e.key=='ArrowDown') { // 下箭头键的 keyCode 是 40 e.keyCode === 40
+            showHistory();
+            var nextInput = getNextInput(e);
+            if (nextInput) { // 如果有之后的输入
+                inputBox.value = nextInput; // 将输入框设置为之后的输入
+            }
+        }
+    });
+
+    // 将输入添加到历史记录，并在历史列表中显示
+    function addToHistory(inputText) {
+        delHistorySameItems(inputText);
+        localStorage.setItem(prefix + Date.now(), inputText); // 将输入存储到 localStorage 中
+        let historyItems = getHistoryItems(); // 获取所有的历史记录项
+        historyItems.push(inputText); // 将新的输入添加到历史记录项的末尾
+        showHistory(historyItems); // 显示历史记录项
+    }
+
+    // 获取之前的输入
+    function getPreviousInput(event) {
+        let historyItemstemp = getHistoryItems(); // 获取所有的历史记录项
+        let historyItems = historyItemstemp.reverse();
+        let currentIndex = historyItems.indexOf(inputBox.value); // 获取当前输入框中的输入在历史记录项中的索引
+        if (currentIndex > 0) { // 如果当前输入在历史记录项中，并且不是第一项
+            highlightedIndex = currentIndex - 1;
+            setHistoryListHighLight(event);
+            return historyItems[currentIndex - 1]; // 返回之前的输入
+        } else { // 如果当前输入不在历史记录项中，或者就是第一项
+            return null; // 没有之前的输入，返回 null
+        }
+    }
+
+    // 获取之后的输入
+    function getNextInput(event) {
+        let historyItemstemp = getHistoryItems(); // 获取所有的历史记录项
+        let historyItems = historyItemstemp.reverse();
+        let currentIndex = historyItems.indexOf(inputBox.value); // 获取当前输入框中的输入在历史记录项中的索引
+        if (currentIndex < historyItems.length - 1) { // 如果当前输入在历史记录项中，并且不是最后一项
+            highlightedIndex = currentIndex + 1;
+            setHistoryListHighLight(event);
+            return historyItems[currentIndex + 1]; // 返回之后的输入
+        } else { // 如果当前输入不在历史记录项中，或者就是最后一项
+            return null; // 没有之后的输入，返回 null
+        }
+    }
+    function delHistorySameItems(value) {
+        for (let i = 0; i < localStorage.length; i++) {
+            let key = localStorage.key(i);
+            if (key.startsWith(prefix)) {
+                if(localStorage.getItem(key)==value){localStorage.removeItem(key);};//{ key: key, value: localStorage.getItem(key) }
+            }
+        }
+    }
+    //设置历史输入命令选择时高亮显示
+    function setHistoryListHighLight(){
+        if(highlightedIndex < 0) return;
+        const paragraphs = document.querySelectorAll('#historyList p');
+        // 移除先前高亮元素的样式
+        for (let i = 0; i < paragraphs.length; i++) {
+            paragraphs[i].classList.remove('highlight');
+        }
+        // 为新的高亮元素添加样式
+        paragraphs[highlightedIndex].classList.add('highlight');
+        historyList.scrollTop = paragraphs[highlightedIndex].offsetTop - historyList.offsetTop;
+    }
+
+    function getHistoryItems() {
+        const allKeys = localStorage.length;
+        const keys = [];
+
+        for (let i = 0; i < allKeys; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith(prefix)) {
+                keys.push(key);
+            }
+        }
+        //遍历keys时根据时间戳排序
+        keys.sort((a, b) => {
+            const timestampA = parseInt(a.split('_')[1], 10);
+            const timestampB = parseInt(b.split('_')[1], 10);
+            return timestampA - timestampB;
+        });
+
+        let prefixedKeys1 = [],count=0;
+        for (const key of keys) {
+            count++;
+            let value = localStorage.getItem(key);
+            prefixedKeys1.push(localStorage.getItem(key));
+            // 处理键值对
+        }
+
+        //超过20个历史命令删除之前的
+        let reverse_keys = keys.reverse(),count2=0;
+        if(count>20){
+            for (const key1 of reverse_keys) {count2++;
+                if(count2>20)localStorage.removeItem(key1);
+            }
+        }
+        return prefixedKeys1;
+    }
+
+    historyList.addEventListener('click', (event) => {
+        const target = event.target;
+        if (target.tagName === 'P') { // 检查点击的元素是否为 p 元素
+            const content = target.textContent; // 获取 p 元素的内容
+            inputBox.value = content;// this.innerText;
+            hideHistory();
+            //console.log('点击的段落内容：', content); // 在控制台输出内容，你可以根据需要进行处理
+        }
+    });
+
+    function showHistory() {
+        let itemsTemp = getHistoryItems(); // 获取特定前缀的项的内容数组
+        let items = itemsTemp.reverse();
+        historyList.innerHTML = ''; // 清空下拉悬浮框的内容
+        items.forEach((item) => { // 遍历内容数组，逐行添加到下拉悬浮框中
+            let p = document.createElement('p');
+            p.textContent = item;
+            historyList.appendChild(p); // 将行添加到下拉悬浮框中
+        });
+        //.style.display = 'block'; // 显示下拉悬浮框
+        historyList.style.display = 'block';
+        let currentIndex = items.indexOf(inputBox.value);
+        if(currentIndex>=0 && currentIndex<items.length){
+            highlightedIndex=currentIndex;
+            setHistoryListHighLight();
+        }
+    }
+    function hideHistory() {
+       let historyList = document.getElementById('historyList');
+        historyList.style.display = 'none';
+    };
+    // 当输入框获得焦点时显示下拉悬浮框，并填充内容
+    inputBox.addEventListener('focus', () => {
+        showHistory();
+    });
+
+    inputBox.addEventListener('click', () => {
+        showHistory();
+    });
+
+    // 当输入框失去焦点时隐藏下拉悬浮框
+    inputBox.addEventListener('blur', () => {
+        setTimeout(function (){hideHistory();},150);
+    });
+
+
+
+    ////////////////////  webSocket //////////////////////
+
+
+    let cnt  = 0;
+
+    function show(str) {
+        document.getElementById('testDiv').insertAdjacentHTML( 'beforeend', '<text>' + str + '</text><br/>');
+        console.log(str);
+    }
+    // 将信息添加到 log 区域中，并设置滚动条位置
+    function showLog(str) {
+        let logDiv=document.getElementById('log');
+        let scrollTop = logDiv.scrollTop, scrollHeight = logDiv.scrollHeight, clientHeight = logDiv.clientHeight;
+        logDiv.innerHTML += str+"\n";
+        let newScrollTop = logDiv.scrollTop, newScrollHeight = logDiv.scrollHeight;
+        if(scrollTop + clientHeight >= (scrollHeight-20)){
+            logDiv.scrollTop = newScrollHeight - clientHeight;
+        }
+    }
+
+
+    socket.onopen = function() {
+        showLog('websocket initialized');
+        this._ready = true;
+        let sendMsg = jsonForMsgAndFormData("msg","First message");
+        this.send(sendMsg);
+    }
+
+    socket.onmessage = function(e) {
+        let msg = e.data;
+        if (typeof msg != 'string') return console.log("unsupported message kind: " + (typeof msg));
+        showLog(msg);
+        //show('get: ' + msg);
+    }
+
+    socket.onclose = function() {
+        showLog('websocket closed');
+        window.close();
+        this._ready = false;
+    }
+
+    socket.onerror = function (err) {
+        this._ready = false;
+        showLog('websocket error' + err);
+    }
+    //btn_test  get_TH1F
+    //new Date().toTimeString() + " client counter:" + (cnt++)
+    document.getElementById('set_arg').onclick = function() {
+        let sendMsg = jsonForMsgAndFormData("setTH1F");
+        if (socket._ready){
+            socket.send(sendMsg);
+            setTimeout(function (){
+                httpRequest("/hpx/root.json", 'object')
+                    .then(obj => redraw("showDiv", obj));
+            },100);
+        }
+
+    }
+
+    document.getElementById('get_TH1F').onclick = function() {
+        httpRequest("/hpx/root.json", 'object')
+            .then(obj => redraw("showDiv", obj));
+        showLog("draw TH1F down");
+    }
+
+    /*document.getElementById('reset_TH1F').onclick = function() {
+        if (socket._ready){
+            //socket.send("resetTH1F");
+            httpRequest("/ResetHPX/cmd.json", 'object').then(obj => redraw("showDiv", obj));
+            //Stop cmd.json  Start cmd.json ResetHPX cmd.json
+            setTimeout(function (){
+                httpRequest("/hpx/root.json", 'object')
+                    .then(obj => redraw("showDiv", obj));
+                showLog("reset down");
+            },100);
+
+        }
+    }*/
+    document.getElementById('reset_TH1F').onclick = function() {
+        if (socket._ready){
+             let sendMsg = jsonForMsgAndFormData("randomTH1F");
+            socket.send(sendMsg);
+            setTimeout(function (){
+                httpRequest("/hpx/root.json", 'object')
+                    .then(obj => redraw("showDiv", obj));
+            },100);
+
+        }
+    }
+
+    document.getElementById('clearLog').onclick = function() {
+        getDomById("log").innerHTML='';
+    }
+
+    function jsonForMsgAndFormData(msg,sendMsg=""){
+        return JSON.stringify({
+            msg:msg,
+            arg1: document.getElementsByName("arg")[0].value,
+            arg2: document.getElementsByName("arg")[1].value,
+            arg3: document.getElementsByName("arg")[1].value,
+            arg4: document.getElementsByName("arg")[1].value,
+            sendMsg:sendMsg
+        });
+    }
+
+    // sends data every second
+   // setInterval(() => {
+      //  if (socket._ready) socket.send("Client time " + new Date().toTimeString() + " client counter:" + (cnt++));
+    //}, 1000);
+
+</script>
+
+</body>
+</html>

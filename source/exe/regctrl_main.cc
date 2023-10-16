@@ -70,6 +70,9 @@ example:
   3) exit/quit command line
    > quit
 
+  4) set adc changel 0 clock alignment register to 1 
+   > set firmware ADC_ADJUST_CH0 1
+
 )"
   );
 

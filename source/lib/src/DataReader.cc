@@ -89,14 +89,12 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
       debug_print(">>>read  %d Bytes: (%s) \n", read_len_real, CStringToHexString((char*)(&(meas.data.raw8[size_filled])), read_len_real).c_str());
       size_filled += read_len_real;
       can_time_out = false; // with data incomming, timeout counter is reset and stopped.
-      if(!DEBUG_PRINT){
       if(size_filled >=4 && meas.head() != HEADER_BYTE){
-	std::fprintf(stderr, "ERROR<%s>: wrong header of dataword (%s), shift one byte to be ", __func__, CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
+	debug_print("ERROR<%s>: wrong header of dataword (%s), shift one byte to be ", __func__, CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
 	MeasRaw::dropbyte(meas); //shift and remove a byte 
 	size_filled -= 1;
-	std::fprintf(stderr, "(%s)\n", CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
+	debug_print("(%s)\n", CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
 	continue;
-      }
       }
     }
     else if (read_len_real== 0 || (read_len_real < 0 && errno == EAGAIN)){ // empty readback, read again

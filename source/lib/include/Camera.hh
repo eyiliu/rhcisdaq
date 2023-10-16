@@ -40,7 +40,7 @@ public:
   std::mutex m_mtx_st;
 
   bool m_skip_push{0};
-  bool m_df_print{0};
+  bool m_df_print{1};
 public:
   ~Camera();
   Camera();
@@ -64,6 +64,5 @@ public:
   uint64_t AsyncWatchDog();
 
   std::string m_name;
-    
   JsonDocument m_jsdoc_conf;
 };

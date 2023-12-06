@@ -45,10 +45,10 @@ public:
   ~Camera();
   Camera();
   void fw_start();
-  uint64_t fw_async_restart();
   void fw_stop();
   void fw_init();
   void fw_conf();
+  void fw_trigger();
 
   void rd_start();
   void rd_stop();

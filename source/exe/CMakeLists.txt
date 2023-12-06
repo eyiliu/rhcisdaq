@@ -1,5 +1,8 @@
+find_package(ROOT REQUIRED COMPONENTS RIO)
+
+
 add_executable(rhcisctrl regctrl_main.cc)
-target_link_libraries(rhcisctrl PRIVATE datactrl-fe mycommon stdc++fs)
+target_link_libraries(rhcisctrl PRIVATE datactrl-fe mycommon stdc++fs ROOT::RIO)
 
 # add_executable(dmarx_dump dmarx_dump.cc)
 

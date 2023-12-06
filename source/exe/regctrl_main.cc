@@ -2,13 +2,60 @@
 #include <cstring>
 #include <cstdlib>
 #include <iostream>
+#include <filesystem>
 
 #include <signal.h>
+
+#include "TFile.h"
+#include "TTree.h"
 
 #include "getopt.h"
 #include "linenoise.h"
 
 #include "Camera.hh"
+
+
+TFile* tfile_createopen(const std::string& strFilePath){
+  TFile *tf = nullptr;
+  if(strFilePath.empty()){
+    std::fprintf(stderr, "file path is not set\n\n");
+    throw;
+  }
+  std::filesystem::path filepath(strFilePath);
+  std::filesystem::path path_dir_output = std::filesystem::absolute(filepath).parent_path();
+  std::filesystem::file_status st_dir_output = std::filesystem::status(path_dir_output);
+  if (!std::filesystem::exists(st_dir_output)) {
+    std::fprintf(stdout, "Output folder does not exist: %s\n\n",
+		 path_dir_output.c_str());
+    std::filesystem::file_status st_parent = std::filesystem::status(path_dir_output.parent_path());
+    if (std::filesystem::exists(st_parent) &&
+	std::filesystem::is_directory(st_parent)) {
+      if (std::filesystem::create_directory(path_dir_output)) {
+	std::fprintf(stdout, "Create output folder: %s\n\n", path_dir_output.c_str());
+      } else {
+	std::fprintf(stderr, "Unable to create folder: %s\n\n", path_dir_output.c_str());
+	throw;
+      }
+    } else {
+      std::fprintf(stderr, "Unable to create folder: %s\n\n", path_dir_output.c_str());
+      throw;
+    }
+  }
+
+  std::filesystem::file_status st_file = std::filesystem::status(filepath);
+  if (std::filesystem::exists(st_file)) {
+    std::fprintf(stderr, "File < %s > exists.\n\n", filepath.c_str());
+    throw;
+  }
+
+  tf = TFile::Open(filepath.c_str(),"recreate");
+  if (!tf) {
+    std::fprintf(stderr, "File opening failed: %s \n\n", filepath.c_str());
+    throw;
+  }
+  return tf;
+}
+
 
 template<typename ... Args>
 static std::string FormatString( const std::string& format, Args ... args ){
@@ -82,6 +129,7 @@ example:
 struct DummyDump;
 
 int main(int argc, char **argv){
+
   std::string c_opt;
   int c;
   while ( (c = getopt(argc, argv, "h")) != -1) {
@@ -99,7 +147,8 @@ int main(int argc, char **argv){
   ///////////////////////
   std::unique_ptr<Camera> cam;
   std::unique_ptr<DummyDump> dummyDump;
-
+  std::unique_ptr<TFile> rootfile;
+  
   auto history_file_path = std::filesystem::temp_directory_path();
   history_file_path /=".regctrl.history"; 
   linenoiseHistoryLoad(history_file_path.c_str());
@@ -129,6 +178,7 @@ int main(int argc, char **argv){
           printf("ctrl: stopping\n");
           cam->fw_stop();
           cam->rd_stop();
+	  dummyDump.reset();
           printf("ctrl: done\n");
         }
         continue;
@@ -156,19 +206,22 @@ int main(int argc, char **argv){
       if(cam){
 	printf("ctrl: scaning once\n");
 	cam->m_skip_push=1;
-	cam->m_df_print=1;	
+	cam->m_df_print=1;
 	cam->rd_start();
-        cam->fw_start();
+        cam->fw_trigger();
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        cam->fw_stop();
         cam->rd_stop();
       }
     }
     else if ( std::regex_match(result, std::regex("\\s*(start)\\s*")) ){
       if(cam){
         printf("ctrl: starting\n");
+        dummyDump = std::make_unique<DummyDump>(cam.get(), rootfile.get());
+	cam->m_skip_push=0;
+	cam->m_df_print=0;	
         cam->rd_start();
-        cam->fw_start();
+        // cam->fw_start();
+	cam->fw_trigger();
         printf("ctrl: done\n");
       }
     }
@@ -177,6 +230,7 @@ int main(int argc, char **argv){
         printf("ctrl: stopping\n");
         cam->fw_stop();
         cam->rd_stop();
+	dummyDump.reset();
         printf("ctrl: done\n");
       }
     }
@@ -186,7 +240,7 @@ int main(int argc, char **argv){
     }
     else if ( std::regex_match(result, std::regex("\\s*(dump)\\s+(start)\\s*"))){
       if(cam)
-        dummyDump = std::make_unique<DummyDump>(cam.get());
+        dummyDump = std::make_unique<DummyDump>(cam.get(), rootfile.get());
     }
     else if ( std::regex_match(result, std::regex("\\s*(dump)\\s+(stop)\\s*"))){
       dummyDump.reset();
@@ -213,11 +267,13 @@ int main(int argc, char **argv){
       std::cmatch mt;
       std::regex_match(result, mt, std::regex("\\s*(file)\\s+(data)\\s+(\\w+)\\s*"));
       std::string datafilepath = mt[3].str();
-      //TODO test path 
-      // if(cam &&cam->m_fw){
-	
-
-      // }
+      if(!datafilepath.empty()){
+	TFile *tf = tfile_createopen(datafilepath);
+	if(tf){
+	  rootfile.reset(tf);
+	  fprintf(stdout, "sucess to set rootfile  %s", datafilepath.c_str());
+	}
+      }
     }
     else{
       std::fprintf(stderr, "unknown command<%s>! consult possible commands by help....\n", result);
@@ -246,18 +302,19 @@ struct DummyDump{
   DummyDump() = delete;
   DummyDump(const DummyDump&) =delete;
   DummyDump& operator=(const DummyDump&) =delete;
-  DummyDump(Camera *cam){
+  DummyDump(Camera *cam, TFile* tf){
     isRunning = true;
-    fut = std::async(std::launch::async, &DummyDump::AsyncDump, &isRunning, cam);
+    fut = std::async(std::launch::async, &DummyDump::AsyncDump, &isRunning, cam, tf);
   }
   ~DummyDump(){
+    std::cout<<"DummyDump deconstructing"<<std::endl;
     if(fut.valid()){
       isRunning = false;
       fut.get();
     }
   }
 
-  static uint64_t AsyncDump(bool* isDumping, Camera* cam){
+  static uint64_t AsyncDump(bool* isDumping, Camera* cam, TFile* tf){
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
     // std::string now_str = TimeNowString("%y%m%d%H%M%S");
@@ -267,9 +324,11 @@ struct DummyDump{
     while (*isDumping){
       auto &ev_front = cam->Front();
       if(ev_front){
-        ev_front->Print(std::cout,0);
+        // ev_front->Print(std::cout,0);
         cam->PopFront();
+	cam->fw_trigger();
         n_ev++;
+	std::cout<<"event number "<<n_ev<<std::endl;
       }
       else{
         std::this_thread::sleep_for(std::chrono::microseconds(1));

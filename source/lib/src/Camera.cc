@@ -34,16 +34,31 @@ Camera::~Camera(){
 
 }
 
+void Camera::fw_trigger(){
+  m_fw->SetFirmwareRegister("SCAN_COUNT_MODE", 1); //counting mode 
+  m_fw->SetFirmwareRegister("SCAN_FRAMES_N", 1);//1 frame per start
+  m_fw->SetFirmwareRegister("SCAN_FRAME_TYPE", 1); //normal type  
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  m_fw->SetFirmwareRegister("SCAN_START", 1);
+}
+
 void Camera::fw_start(){
   if(!m_fw) return;
   info_print( " fw starting \n");
+  // m_fw->SetFirmwareRegister("SCAN_COUNT_MODE", 2); //continue mode 
+  m_fw->SetFirmwareRegister("SCAN_COUNT_MODE", 1); //counting mode 
+  m_fw->SetFirmwareRegister("SCAN_FRAMES_N", 100);//1 frame per start
+  m_fw->SetFirmwareRegister("SCAN_FRAME_TYPE", 1); //normal type  
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
   m_fw->SetFirmwareRegister("SCAN_START", 1);
   info_print( " fw start \n");
 }
 
+
 void Camera::fw_stop(){
   if(!m_fw) return;
   info_print(" fw stopping \n");
+  m_fw->SetFirmwareRegister("SCAN_STOP", 1);
   info_print(" fw stop done\n");
 }
 
@@ -78,7 +93,7 @@ void Camera::rd_start(){
     std::fprintf(stderr, "old AsyncReading() has not been stopped\n");
     return;
   }
-
+  
   m_fut_async_rd = std::async(std::launch::async, &Camera::AsyncPushBack, this);
   if(!m_is_async_watching){
     m_fut_async_watch = std::async(std::launch::async, &Camera::AsyncWatchDog, this);

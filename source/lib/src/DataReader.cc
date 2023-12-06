@@ -15,13 +15,13 @@
 
 
 #ifndef DEBUG_PRINT
-#define DEBUG_PRINT 1
+#define DEBUG_PRINT 0
 #endif
 #define debug_print(fmt, ...)                                           \
   do { if (DEBUG_PRINT) std::fprintf(stdout, fmt, ##__VA_ARGS__); } while (0)
 
 #ifndef INFO_PRINT
-#define INFO_PRINT 1
+#define INFO_PRINT 0
 #endif
 #define info_print(fmt, ...)                                           \
   do { if (INFO_PRINT) std::fprintf(stdout, fmt, ##__VA_ARGS__); } while (0)

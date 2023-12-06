@@ -111,5 +111,4 @@ public:
   rapidjson::Document m_jsdoc;
 };
 
-
 #endif

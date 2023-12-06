@@ -126,6 +126,7 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
 
 DataFrameSP DataReader::Read(const std::chrono::milliseconds &timeout_idle){ //timeout_read_interval  
   std::vector<MeasRaw> meas_col;
+  DataFrameSP df;
   while(1){
     auto meas = readMeasRaw(m_fd, tp_timeout_idel, timeout_idle);
     if(meas==0){
@@ -147,7 +148,8 @@ DataFrameSP DataReader::Read(const std::chrono::milliseconds &timeout_idle){ //t
       	std::fprintf(stderr, "ERROR: reach 64*32 packages, but no end%d \n");
     }
   }
-  return std::make_shared<DataFrame>(std::move(meas_col));
+  df = std::make_shared<DataFrame>(std::move(meas_col));
+  return df;
 }
 
 std::string DataReader::LoadFileToString(const std::string& path){

@@ -91,57 +91,25 @@ public:
   DataFrame(const std::string& raw);
   DataFrame(std::string&& raw);
   DataFrame(std::vector<MeasRaw>&& meas_col);
-
-  DataFrame(const rapidjson::Value &js);
-  DataFrame(const rapidjson::GenericValue<rapidjson::UTF8<>, rapidjson::CrtAllocator> &js);
+  
   DataFrame(){};
   
   void Print(std::ostream& os, size_t ws = 0) const;
 
-  template <typename TA>
-  rapidjson::GenericValue<rapidjson::UTF8<>, TA> JSON(TA &a) const;
-
-  template <typename TA>
-  void fromJSON(const rapidjson::GenericValue<rapidjson::UTF8<>, TA> &js);
-
+  void fillJsdoc();
+  const rapidjson::Document& jsdoc() const;
+  
   void fromRaw(const std::string &raw);
-  
   void fromMeasRaws(const std::vector<MeasRaw> &meas_col);
-  
+
   std::vector<MeasRaw> m_measraw_col;
   std::vector<MeasPixel> m_pixel_col;
 
   std::map<std::pair<uint8_t, uint8_t>, int16_t> m_map_pos_adc;
-  
   std::string m_raw;
+  
+  rapidjson::Document m_jsdoc;
 };
 
-
-template <typename Allocator>
-rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> DataFrame::JSON(Allocator &a) const{
-  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js;
-  js.SetObject();
-  js.AddMember("sensor", "rhcis1", a);
-  js.AddMember("region", "1", a);
-  rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js_rcv_frame;
-  js_rcv_frame.SetArray();
-  for(const auto& [rc,v]: m_map_pos_adc){
-    rapidjson::GenericValue<rapidjson::UTF8<>, Allocator> js_rcv;
-    js_rcv.SetArray();
-    js_rcv.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(rc.first), a);
-    js_rcv.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(rc.second), a);
-    js_rcv.PushBack(rapidjson::GenericValue<rapidjson::UTF8<>, Allocator>(v), a);
-    js_rcv_frame.PushBack(std::move(js_rcv), a);
-  }
-  js.AddMember("rcv_frame", std::move(js_rcv_frame) , a);
-  //https://rapidjson.org/classrapidjson_1_1_generic_object.html
-  //https://rapidjson.org/md_doc_tutorial.html#CreateModifyValues
-  return js;
-};
-
-template <typename TA>
-void DataFrame::fromJSON(const rapidjson::GenericValue<rapidjson::UTF8<>, TA> &js){
-}
 
 #endif
-

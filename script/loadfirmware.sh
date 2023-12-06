@@ -1,6 +1,6 @@
 #! /usr/bin/env sh
 
-DTBO_BASE_NAME="fpgafw"
+DTBO_BASE_NAME="fpgafw2p1u1"
 if [ $# -gt 0 ]
 then
     DTBO_BASE_NAME=$1

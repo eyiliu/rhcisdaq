@@ -73,6 +73,9 @@ example:
   4) set adc changel 0 clock alignment register to 1 
    > set firmware ADC_ADJUST_CH0 1
 
+  5) save data file into TTree ROOT file 
+   > file data /path/to/root/data/filename.root
+
 )"
   );
 
@@ -106,7 +109,7 @@ int main(int argc, char **argv){
                                        {"help", "quit", "exit", "info",
                                         "init", "start", "stop","scan",
                                         "firmware", "set", "get",
-                                        "dump",
+                                        "dump", "file",
                                         NULL};
                                      size_t i;
                                      for (i = 0;  examples[i] != NULL; ++i) {
@@ -205,6 +208,16 @@ int main(int argc, char **argv){
         uint64_t value = cam->m_fw->GetFirmwareRegister(name);
         fprintf(stderr, "%s = %llu, %#llx\n", name.c_str(), value, value);
       }
+    }
+    else if ( std::regex_match(result, std::regex("\\s*(file)\\s+(data)\\s+(\\w+)\\s*")) ){
+      std::cmatch mt;
+      std::regex_match(result, mt, std::regex("\\s*(file)\\s+(data)\\s+(\\w+)\\s*"));
+      std::string datafilepath = mt[3].str();
+      //TODO test path 
+      // if(cam &&cam->m_fw){
+	
+
+      // }
     }
     else{
       std::fprintf(stderr, "unknown command<%s>! consult possible commands by help....\n", result);

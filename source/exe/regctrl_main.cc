@@ -49,9 +49,13 @@ TFile* tfile_createopen(const std::string& strFilePath){
   }
 
   tf = TFile::Open(filepath.c_str(),"recreate");
+  // tf = TFile::Open("data.root","recreate");
   if (!tf) {
     std::fprintf(stderr, "File opening failed: %s \n\n", filepath.c_str());
     throw;
+  }
+  else{
+    std::fprintf(stdout, "File opening sucess: %s \n\n", filepath.c_str());
   }
   return tf;
 }
@@ -147,7 +151,7 @@ int main(int argc, char **argv){
   ///////////////////////
   std::unique_ptr<Camera> cam;
   std::unique_ptr<DummyDump> dummyDump;
-  std::unique_ptr<TFile> rootfile;
+  std::string rootfile;
   
   auto history_file_path = std::filesystem::temp_directory_path();
   history_file_path /=".regctrl.history"; 
@@ -216,7 +220,7 @@ int main(int argc, char **argv){
     else if ( std::regex_match(result, std::regex("\\s*(start)\\s*")) ){
       if(cam){
         printf("ctrl: starting\n");
-        dummyDump = std::make_unique<DummyDump>(cam.get(), rootfile.get());
+        dummyDump = std::make_unique<DummyDump>(cam.get(), &rootfile);
 	cam->m_skip_push=0;
 	cam->m_df_print=0;	
         cam->rd_start();
@@ -240,7 +244,7 @@ int main(int argc, char **argv){
     }
     else if ( std::regex_match(result, std::regex("\\s*(dump)\\s+(start)\\s*"))){
       if(cam)
-        dummyDump = std::make_unique<DummyDump>(cam.get(), rootfile.get());
+        dummyDump = std::make_unique<DummyDump>(cam.get(), &rootfile);
     }
     else if ( std::regex_match(result, std::regex("\\s*(dump)\\s+(stop)\\s*"))){
       dummyDump.reset();
@@ -263,17 +267,19 @@ int main(int argc, char **argv){
         fprintf(stderr, "%s = %llu, %#llx\n", name.c_str(), value, value);
       }
     }
-    else if ( std::regex_match(result, std::regex("\\s*(file)\\s+(data)\\s+(\\w+)\\s*")) ){
+    else if ( std::regex_match(result, std::regex("\\s*(file)\\s+(data)\\s+(\\S+)\\s*")) ){
       std::cmatch mt;
-      std::regex_match(result, mt, std::regex("\\s*(file)\\s+(data)\\s+(\\w+)\\s*"));
+      std::regex_match(result, mt, std::regex("\\s*(file)\\s+(data)\\s+(\\S+)\\s*"));
       std::string datafilepath = mt[3].str();
       if(!datafilepath.empty()){
-	TFile *tf = tfile_createopen(datafilepath);
-	if(tf){
-	  rootfile.reset(tf);
-	  fprintf(stdout, "sucess to set rootfile  %s", datafilepath.c_str());
-	}
+	// TFile *tf_n = tfile_createopen(datafilepath);
+	// if(tf){
+	//   rootfile.reset(tf);
+	fprintf(stdout, "set rootfile  %s", datafilepath.c_str());
+	  // }
+	
       }
+      rootfile=datafilepath;
     }
     else{
       std::fprintf(stderr, "unknown command<%s>! consult possible commands by help....\n", result);
@@ -291,6 +297,11 @@ int main(int argc, char **argv){
   dummyDump.reset();
   cam.reset();
 
+  // if(rootfile){
+  //   rootfile->Close();
+  //   rootfile.reset();
+  // }
+  
   return 0;
 }
 
@@ -302,9 +313,9 @@ struct DummyDump{
   DummyDump() = delete;
   DummyDump(const DummyDump&) =delete;
   DummyDump& operator=(const DummyDump&) =delete;
-  DummyDump(Camera *cam, TFile* tf){
+  DummyDump(Camera *cam, std::string* tf_name){
     isRunning = true;
-    fut = std::async(std::launch::async, &DummyDump::AsyncDump, &isRunning, cam, tf);
+    fut = std::async(std::launch::async, &DummyDump::AsyncDump, &isRunning, cam,tf_name);
   }
   ~DummyDump(){
     std::cout<<"DummyDump deconstructing"<<std::endl;
@@ -314,20 +325,52 @@ struct DummyDump{
     }
   }
 
-  static uint64_t AsyncDump(bool* isDumping, Camera* cam, TFile* tf){
+  static uint64_t AsyncDump(bool* isDumping, Camera* cam, std::string* tf_name){
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
-    // std::string now_str = TimeNowString("%y%m%d%H%M%S");
-
-    uint64_t n_ev = 0;
+    // std::string now_str; //= TimeNowString("%y%m%d%H%M%S");
+    // std::string filename("data");
+    // filename = filename+now_str+".root";
+    
+    TFile* tfx = tfile_createopen(*tf_name);;
+    
+    TTree* pixTree = nullptr;
+    uint32_t frameN;
+    uint8_t colN;
+    uint8_t rowN;
+    uint16_t adc;
+    
+    if(tfx){
+      pixTree = tfx->Get<TTree>("tree_pixel");
+      if(!pixTree){
+	pixTree = new TTree("tree_pixel","tree_pixel");
+	// pixTree->SetDirectory(tf);
+      }
+      pixTree->Branch("frameN", &frameN);
+      pixTree->Branch("colN", &colN);
+      pixTree->Branch("rowN", &rowN);
+      pixTree->Branch("adc", &adc);
+    }
+    
+    uint32_t n_ev = 0;
     *isDumping = true;
     while (*isDumping){
       auto &ev_front = cam->Front();
       if(ev_front){
-        // ev_front->Print(std::cout,0);
-        cam->PopFront();
+	if(tfx){
+	  for(const auto& [rc,v]: ev_front->m_map_pos_adc){
+	    frameN = n_ev;
+	    rowN= rc.first;
+	    colN = rc.second;
+	    adc = v;
+	    pixTree->Fill();	    
+	  }
+	  pixTree->Write();
+	}
+	// ev_front->Print(std::cout,0);
+	cam->PopFront();
 	cam->fw_trigger();
-        n_ev++;
+	n_ev++;
 	std::cout<<"event number "<<n_ev<<std::endl;
       }
       else{
@@ -335,8 +378,9 @@ struct DummyDump{
         continue;
       }
     }
+    tfx->Close();
+    delete tfx;
     printf("AsyncDump exited\n");
     return n_ev;
   }
-
 };

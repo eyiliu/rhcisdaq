@@ -44,8 +44,7 @@ TFile* tfile_createopen(const std::string& strFilePath){
 
   std::filesystem::file_status st_file = std::filesystem::status(filepath);
   if (std::filesystem::exists(st_file)) {
-    std::fprintf(stderr, "File < %s > exists.\n\n", filepath.c_str());
-    throw;
+    std::fprintf(stdout, "WARNING: File < %s > exists. Recreate\n\n", filepath.c_str());
   }
 
   tf = TFile::Open(filepath.c_str(),"recreate");
@@ -151,7 +150,7 @@ int main(int argc, char **argv){
   ///////////////////////
   std::unique_ptr<Camera> cam;
   std::unique_ptr<DummyDump> dummyDump;
-  std::string rootfile;
+  std::string rootfile("./data_default_name.root");
   
   auto history_file_path = std::filesystem::temp_directory_path();
   history_file_path /=".regctrl.history"; 
@@ -209,6 +208,7 @@ int main(int argc, char **argv){
     else if ( std::regex_match(result, std::regex("\\s*(scan)\\s*")) ){
       if(cam){
 	printf("ctrl: scaning once\n");
+	dummyDump.reset();
 	cam->m_skip_push=1;
 	cam->m_df_print=1;
 	cam->rd_start();
@@ -224,8 +224,8 @@ int main(int argc, char **argv){
 	cam->m_skip_push=0;
 	cam->m_df_print=0;	
         cam->rd_start();
-        // cam->fw_start();
-	cam->fw_trigger();
+        cam->fw_start();
+	//cam->fw_trigger();
         printf("ctrl: done\n");
       }
     }
@@ -369,7 +369,7 @@ struct DummyDump{
 	}
 	// ev_front->Print(std::cout,0);
 	cam->PopFront();
-	cam->fw_trigger();
+	//cam->fw_trigger();
 	n_ev++;
 	std::cout<<"event number "<<n_ev<<std::endl;
       }

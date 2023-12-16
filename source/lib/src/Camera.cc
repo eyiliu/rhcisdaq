@@ -45,8 +45,8 @@ void Camera::fw_trigger(){
 void Camera::fw_start(){
   if(!m_fw) return;
   info_print( " fw starting \n");
-  // m_fw->SetFirmwareRegister("SCAN_COUNT_MODE", 2); //continue mode 
-  m_fw->SetFirmwareRegister("SCAN_COUNT_MODE", 1); //counting mode 
+  m_fw->SetFirmwareRegister("SCAN_COUNT_MODE", 2); //continue mode 
+  //m_fw->SetFirmwareRegister("SCAN_COUNT_MODE", 1); //counting mode 
   m_fw->SetFirmwareRegister("SCAN_FRAMES_N", 100);//1 frame per start
   m_fw->SetFirmwareRegister("SCAN_FRAME_TYPE", 1); //normal type  
   std::this_thread::sleep_for(std::chrono::milliseconds(10));

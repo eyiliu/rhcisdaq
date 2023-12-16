@@ -15,13 +15,13 @@
 
 
 #ifndef DEBUG_PRINT
-#define DEBUG_PRINT 0
+#define DEBUG_PRINT 1
 #endif
 #define debug_print(fmt, ...)                                           \
   do { if (DEBUG_PRINT) std::fprintf(stdout, fmt, ##__VA_ARGS__); } while (0)
 
 #ifndef INFO_PRINT
-#define INFO_PRINT 0
+#define INFO_PRINT 1
 #endif
 #define info_print(fmt, ...)                                           \
   do { if (INFO_PRINT) std::fprintf(stdout, fmt, ##__VA_ARGS__); } while (0)
@@ -90,7 +90,7 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
       size_filled += read_len_real;
       can_time_out = false; // with data incomming, timeout counter is reset and stopped.
       if(size_filled >=4 && meas.head() != HEADER_BYTE){
-	debug_print("ERROR<%s>: wrong header of dataword (%s), shift one byte to be ", __func__, CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
+	info_print("ERROR<%s>: wrong header of dataword (%s), shift one byte to be ", __func__, CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
 	MeasRaw::dropbyte(meas); //shift and remove a byte 
 	size_filled -= 1;
 	debug_print("(%s)\n", CStringToHexString((char*)(meas.data.raw8), size_filled).c_str());
@@ -120,7 +120,7 @@ MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout
       throw;
     }
   }
-  debug_print(">>>finish package: (%s) \n", CStringToHexString((char*)(&(meas.data.raw8[0])), 8).c_str());
+  // debug_print(">>>finish package: (%s) \n", CStringToHexString((char*)(&(meas.data.raw8[0])), 8).c_str());
   return meas;
 }
 

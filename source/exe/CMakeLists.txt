@@ -4,6 +4,10 @@ find_package(ROOT REQUIRED COMPONENTS RIO Tree)
 add_executable(rhcisctrl regctrl_main.cc)
 target_link_libraries(rhcisctrl PRIVATE datactrl-fe mycommon stdc++fs ROOT::RIO ROOT::Tree)
 
+add_executable(rhcisdump dmarx_dump.cc)
+target_link_libraries(rhcisdump PRIVATE datactrl-fe mycommon stdc++fs)
+
+
 # add_executable(dmarx_dump dmarx_dump.cc)
 
 # target_include_directories(dmarx_dump
@@ -13,7 +17,7 @@ target_link_libraries(rhcisctrl PRIVATE datactrl-fe mycommon stdc++fs ROOT::RIO 
 # target_link_libraries(dmarx_dump PRIVATE mycommon datactrl-fe stdc++fs Threads::Threads)
 
 
-install(TARGETS rhcisctrl
+install(TARGETS rhcisctrl rhcisdump
   EXPORT ${PROJECT_NAME}Targets
   RUNTIME       DESTINATION bin      COMPONENT runtime
   LIBRARY       DESTINATION lib      COMPONENT runtime

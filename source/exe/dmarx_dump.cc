@@ -26,9 +26,8 @@ using std::uint32_t;
 using std::size_t;
 
 
-#ifndef DEBUG_PRINT
 #define DEBUG_PRINT 0
-#endif
+
 #define debug_print(fmt, ...)                                           \
   do { if (DEBUG_PRINT) std::fprintf(stdout, fmt, ##__VA_ARGS__); } while (0)
 
@@ -74,6 +73,47 @@ std::FILE* createfile_and_open(std::filesystem::path filepath){
   }
   return fp;
 }
+
+
+bool test_filepath(std::filesystem::path filepath){
+  std::FILE *fp = nullptr;
+  if(filepath.empty()){
+    std::fprintf(stderr, "Empty filepath\n\n");
+    throw;  
+  }
+  std::filesystem::path path_dir_output = std::filesystem::absolute(filepath).parent_path();
+  std::filesystem::file_status st_dir_output =
+    std::filesystem::status(path_dir_output);
+  if (!std::filesystem::exists(st_dir_output)) {
+    std::fprintf(stdout, "Output folder does not exist: %s\n\n",
+		 path_dir_output.c_str());
+    std::filesystem::file_status st_parent =
+      std::filesystem::status(path_dir_output.parent_path());
+    if (std::filesystem::exists(st_parent) &&
+	std::filesystem::is_directory(st_parent)) {
+      if (std::filesystem::create_directory(path_dir_output)) {
+	std::fprintf(stdout, "Create output folder: %s\n\n", path_dir_output.c_str());
+      } else {
+	std::fprintf(stderr, "Unable to create folder: %s\n\n", path_dir_output.c_str());
+	throw;
+      }
+    } else {
+      std::fprintf(stderr, "Unable to create folder: %s\n\n", path_dir_output.c_str());
+      throw;
+    }
+  }
+
+  std::filesystem::file_status st_file = std::filesystem::status(filepath);
+  if (std::filesystem::exists(st_file)) {
+    std::fprintf(stderr, "File < %s > exists.\n\n", filepath.c_str());
+    throw;
+  }
+
+  return true;
+}
+
+
+
 
 
 static sig_atomic_t g_done = 0;
@@ -194,7 +234,7 @@ namespace{
 	else{
 	  if(std::chrono::system_clock::now() > tp_timeout_idel){ // timeout overflow reached
 	    if(size_filled == 0){
-	      // debug_print("INFO<%s>: no data receving.\n",  __func__);
+	      //std::fprintf(stderr, "INFO<%s>: no data receving.\n",  __func__);
 	      return MeasRaw(0);
 	    }
 	    std::fprintf(stderr, "ERROR<%s>: timeout error of incomplete data reading \n", __func__ );
@@ -212,6 +252,38 @@ namespace{
     return meas;
   }
 
+
+  DataFrameSP Read(int fd_rx, const std::chrono::milliseconds &timeout_idle){ //timeout_read_interval 
+    std::vector<MeasRaw> meas_col;
+    DataFrameSP df;
+    std::chrono::system_clock::time_point tp_timeout_idel;
+    while(1){
+      auto meas = readMeasRaw(fd_rx, tp_timeout_idel, timeout_idle);
+      if(meas==0){
+	return nullptr;
+      }
+      if(meas.isFrontMeasRaw()){
+	meas_col.clear();
+	meas_col.reserve(64*32);
+      }
+      meas_col.push_back(meas);
+    
+      if(meas.isEndMeasRaw()){
+	if(meas_col.size()!=64*32){
+	  std::fprintf(stderr, "ERROR: reach end package at size %d \n", meas_col.size());
+	}
+	break;
+      }
+      if(meas_col.size()==64*32){
+      	std::fprintf(stderr, "ERROR: reach 64*32 packages, but no end%d \n");
+      }
+    }
+    df = std::make_shared<DataFrame>(std::move(meas_col));
+    return df;
+  }
+
+
+  
 }
 
 
@@ -221,19 +293,29 @@ Usage:
   -verbose                     verbose flag
   -rawPrint                    print data by hex format in terminal
   -rawFile        <path>       path of raw file to save
-  -exitTime       <n>          exit after n seconds (0=NoLimit, default 10)
+  -formatPrint                 print data by json format in terminal
+  -formatFile     <path>       path of json format file to save
+  -exitTime       <n>          exit after n seconds (0=NoLimit, default 30)
+
 examples:
-#1. save data and print
-./dmarx_dump -rawPrint -rawFile test.dat
+#1. save raw data and print
+./rhcisdump -rawPrint -rawFile test.dat
 
-#2. save data only
-./dmarx_dump -rawFile test.dat
+#2. save raw data only
+./rhcisdump -rawFile test.dat
 
-#3. print only
-./dmarx_dump -rawPrint
+#3. print raw data only
+./rhcisdump -rawPrint
 
-#4. print, exit after 60 seconds
-./dmarx_dump -rawPrint -exitTime 60
+#4. print json format data only
+./rhcisdump -formatPrint
+
+#5. print json format data and save format data
+./rhcisdump -formatPrint -formateFile testfile.json
+
+#6. print, exit after 60 seconds
+./rhcisdump -rawPrint -exitTime 60
+
 
 )";
 
@@ -243,7 +325,7 @@ int main(int argc, char *argv[]) {
   std::string rawFilePath;
   std::string formatFilePath;
   std::string ipAddressStr;
-  int exitTimeSecond = 10;
+  int exitTimeSecond = 30;
   bool do_rawPrint = false;
   bool do_formatPrint = false;
 
@@ -346,9 +428,10 @@ int main(int argc, char *argv[]) {
     raw_fp=createfile_and_open(rawFilePath);
   }
 
-  std::FILE *format_fp = nullptr;
-  if(!formatFilePath.empty()){
-    format_fp=createfile_and_open(formatFilePath);
+  std::ofstream format_ofs;
+  if(!formatFilePath.empty()){   
+    test_filepath(formatFilePath);
+    format_ofs.open(formatFilePath.c_str(), std::ofstream::out | std::ofstream::app);
   }
   
   std::fprintf(stdout, " connecting to %s\n", "/dev/axidmard");
@@ -364,25 +447,56 @@ int main(int argc, char *argv[]) {
   std::future<uint64_t> fut_async_watch;
   fut_async_watch = std::async(std::launch::async, &AsyncWatchDog);
   std::chrono::system_clock::time_point tp_timeout;
+  uint32_t dfN=0;
   while(!g_done){
     if(exitTimeSecond && std::chrono::system_clock::now() > tp_timeout_exit){
       std::fprintf(stdout, "run %d seconds, nornal exit\n", exitTimeSecond);
       break;
     }
-
-    auto meas = readMeasRaw(fd_rx, tp_timeout, std::chrono::seconds(1));    
-    if(meas==0){
-      std::fprintf(stdout, "Data reveving timeout\n");
-      continue;
+    if(1){
+      auto df = Read(fd_rx, std::chrono::seconds(1));
+      if(!df){
+	std::fprintf(stdout, "Data reveving timeout\n");
+	continue;
+      }
+      std::fprintf(stdout, "\nframe %d:\n", dfN);
+      if(do_formatPrint){
+	df->Print(std::cout, 0);
+	std::cout<<std::endl<<std::flush;
+      }
+      if(do_rawPrint){
+	for(const auto& mr : df->m_measraw_col){
+	  std::fprintf(stdout, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
+	}
+	std::fprintf(stdout, "\n");
+	std::fflush(stdout);
+      }
+      if(format_ofs.is_open()){
+       	df->Print(format_ofs, 0);
+      }
+      if(raw_fp){
+	for(const auto& mr : df->m_measraw_col){
+	  std::fprintf(raw_fp, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
+	}
+	std::fprintf(raw_fp, "\n");
+      }
     }
-    if(do_formatPrint){
-      std::fprintf(stdout, "FormatData:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
-      // std::fflush(stdout);
+    else{
+      auto meas = readMeasRaw(fd_rx, tp_timeout, std::chrono::seconds(1));    
+      if(meas==0){
+	std::fprintf(stdout, "Data reveving timeout\n");
+	continue;
+      }
+      if(do_formatPrint){
+	std::fprintf(stdout, "FormatData:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
+	// std::fflush(stdout);
+      }
+      if(do_rawPrint){
+	std::fprintf(stdout, "RawData_TCP_RX:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
+	// std::fflush(stdout);
+      }
     }
-    if(do_rawPrint){
-      std::fprintf(stdout, "RawData_TCP_RX:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
-      // std::fflush(stdout);
-    }    
+    dfN++;
   }
   
   close(fd_rx);
@@ -390,9 +504,8 @@ int main(int argc, char *argv[]) {
     std::fflush(raw_fp);
     std::fclose(raw_fp);
   }
-  if(format_fp){
-    std::fflush(format_fp);
-    std::fclose(format_fp);
+  if(format_ofs.is_open()){
+    format_ofs.close();
   }
 
   g_done= 1;

@@ -239,6 +239,15 @@
 	    "read":false,
 	    "write":true,
 	    "description":""
-	}	
+	},
+	{
+	    "name":"SCAN_FRAMES_N_TX",
+	    "address":"0x008c",
+	    "bytes":4,
+	    "read":true,
+	    "write":false,
+	    "description":""
+	}
+	
     ]
 }

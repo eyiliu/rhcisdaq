@@ -73,11 +73,11 @@ struct MeasRaw{
   inline MeasPixel getPixel0() const {return {brow(),col0(),adc0()};}
   inline MeasPixel getPixel1() const {return {brow(),col1(),adc1()};}
 
-  inline bool isFrontMeasRaw(){
+  inline bool isFrontMeasRaw() const{
     return (data.raw32[0]==FRONT_MEASRAW_32);
   }
 
-  inline bool isEndMeasRaw(){
+  inline bool isEndMeasRaw() const {
     return (data.raw32[0]==END_MEASRAW_32);
   }  
 };

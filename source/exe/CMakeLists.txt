@@ -8,6 +8,10 @@ add_executable(rhcisdump dmarx_dump.cc)
 target_link_libraries(rhcisdump PRIVATE datactrl-fe mycommon stdc++fs)
 
 
+add_executable(rhcisdump_test dmarx_test.cc)
+target_link_libraries(rhcisdump_test PRIVATE datactrl-fe mycommon stdc++fs)
+
+
 # add_executable(dmarx_dump dmarx_dump.cc)
 
 # target_include_directories(dmarx_dump
@@ -17,7 +21,7 @@ target_link_libraries(rhcisdump PRIVATE datactrl-fe mycommon stdc++fs)
 # target_link_libraries(dmarx_dump PRIVATE mycommon datactrl-fe stdc++fs Threads::Threads)
 
 
-install(TARGETS rhcisctrl rhcisdump
+install(TARGETS rhcisctrl rhcisdump rhcisdump_test
   EXPORT ${PROJECT_NAME}Targets
   RUNTIME       DESTINATION bin      COMPONENT runtime
   LIBRARY       DESTINATION lib      COMPONENT runtime

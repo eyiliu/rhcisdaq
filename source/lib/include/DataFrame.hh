@@ -10,7 +10,11 @@
 #include "mysystem.hh"
 #include "myrapidjson.h"
 
-
+ // 1d191b55
+ // 07033f55
+ // 3c380055
+// #define FRONT_MEASRAW_32 (0x551b191d)
+// #define END_MEASRAW_32 (0x553f0307)
 #define FRONT_MEASRAW_32 (0x5500383c)
 #define END_MEASRAW_32 (0x553f0307)
 

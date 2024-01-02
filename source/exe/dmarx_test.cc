@@ -204,112 +204,13 @@ namespace{
     return hexToBinString(hex.data(), hex.size());
   }
 
-
-
   
-
-  MeasRaw readMeasRaw(int fd_rx, std::chrono::system_clock::time_point &tp_timeout_idel, const std::chrono::milliseconds &timeout_idel){ //timeout_read_interval
+  int64_t readtest(int fd_rx, std::chrono::system_clock::time_point &tp_timeout_idel, const std::chrono::milliseconds &timeout_idel, uint32_t dfN){ //timeout_read_interval
     // std::fprintf(stderr, "-");
-    MeasRaw meas;
-    size_t size_buf = sizeof(meas);
-    size_t size_filled = 0;  
-    bool can_time_out = false;
-    int read_len_real = 0;
-    while(size_filled < size_buf){
-      read_len_real = read(fd_rx, &(meas.data.raw8[size_filled]), size_buf-size_filled);
-      if(read_len_real>0){
-	// debug_print(">>>read  %d Bytes \n", read_len_real);
-	size_filled += read_len_real;
-	can_time_out = false; // with data incomming, timeout counter is reset and stopped. 
-	if(size_filled >=4 && meas.head() != HEADER_BYTE){	
-	  std::fprintf(stderr, "ERROR<%s>: wrong header of dataword (%s), shift one byte to be ", __func__, binToHexString((char*)(meas.data.raw8), size_filled).c_str());
-	  MeasRaw::dropbyte(meas); //shift and remove a byte 
-	  std::fprintf(stderr, "(%s)\n", binToHexString((char*)(meas.data.raw8), size_filled).c_str());
-	  size_filled -= 1;
-	  continue;
-	}
-      }
-      else if (read_len_real== 0 || (read_len_real < 0 && errno == EAGAIN)){ // empty readback, read again
-	if(!can_time_out){ // first hit here, if timeout counter was not yet started.
-	  can_time_out = true;
-	  tp_timeout_idel = std::chrono::system_clock::now() + timeout_idel; // start timeout counter
-	}
-	else{
-	  if(std::chrono::system_clock::now() > tp_timeout_idel){ // timeout overflow reached
-	    if(size_filled == 0){
-	      //std::fprintf(stderr, "INFO<%s>: no data receving.\n",  __func__);
-	      return MeasRaw(0);
-	    }
-	    std::fprintf(stderr, "ERROR<%s>: timeout error of incomplete data reading \n", __func__ );
-	    std::fprintf(stderr, "=");
-	    return MeasRaw(0);
-	  }
-	}
-	continue;
-      }
-      else{
-	std::fprintf(stderr, "ERROR<%s>: read(...) returns error code %d\n", __func__,  errno);
-	throw;
-      }
-    }
-    return meas;
-  }
-
-
-  DataFrameSP Read(int fd_rx, const std::chrono::milliseconds &timeout_idle){ //timeout_read_interval 
-    std::vector<MeasRaw> meas_col;
-    DataFrameSP df;
-    std::chrono::system_clock::time_point tp_timeout_idel;
-    while(1){
-      auto meas = readMeasRaw(fd_rx, tp_timeout_idel, timeout_idle);
-      if(meas==0){
-	return nullptr;
-      }
-      if(meas.isFrontMeasRaw()){
-	meas_col.clear();
-	meas_col.reserve(64*32);
-      }
-      meas_col.push_back(meas);
-    
-      if(meas.isEndMeasRaw()){
-	if(meas_col.size()!=64*32){
-	  std::fprintf(stderr, "ERROR: reach end package at size %d \n", meas_col.size());
-	}
-	break;
-      }
-      if(meas_col.size()==64*32){
-      	std::fprintf(stderr, "ERROR: reach 64*32 packages, but no end%d \n");
-      }
-    }
-    df = std::make_shared<DataFrame>(std::move(meas_col));
-    return df;
-  }
-
-  DataFrameSP readdf(int fd_rx, const std::chrono::milliseconds &timeout_idel){ //timeout_read_interval
-    // std::fprintf(stderr, "-");
-    std::chrono::system_clock::time_point tp_timeout_idel;
-    MeasRaw frontMeas;
-    while(1){
-      MeasRaw aMeas = readMeasRaw(fd_rx, tp_timeout_idel, timeout_idel);
-      if(aMeas.isFrontMeasRaw()){
-	frontMeas = aMeas;
-	break;
-      }
-      else if(aMeas.data.raw64==0){
-	//error, or timeout.
-	return nullptr;
-      }
-      else{ //none front meas;
-	std::fprintf(stderr, "INFO<%s>: skip none front meas:  %s\n",  __func__, binToHexString((char*)(aMeas.data.raw8),sizeof(aMeas.data)).c_str());
-	continue;
-      }
-    }
-    
     const size_t packNumInFrame = 2048;
-    std::vector<MeasRaw> meas_col(packNumInFrame, 0);
-    meas_col[0] = frontMeas;
-    MeasRaw* meas_col_p=&(meas_col[1]);
-    constexpr size_t size_buf = sizeof(MeasRaw)*(packNumInFrame-1);
+    std::array<MeasRaw, packNumInFrame> meas_col;
+    constexpr size_t size_buf = sizeof(MeasRaw)*packNumInFrame;
+    MeasRaw* meas_col_p=meas_col.data();
     unsigned char* meas_col_buffer_rx_p = reinterpret_cast<unsigned char*>(meas_col_p);
     size_t size_filled = 0;  
     bool can_time_out = false;
@@ -325,44 +226,55 @@ namespace{
 	if(!can_time_out){ // first hit here, if timeout counter was not yet started.
 	  can_time_out = true;
 	  tp_timeout_idel = std::chrono::system_clock::now() + timeout_idel; // start timeout counter
-	  continue;
 	}
 	else{
 	  if(std::chrono::system_clock::now() > tp_timeout_idel){ // timeout overflow reached
 	    if(size_filled == 0){
-	      std::fprintf(stderr, "ERROR<%s>: no data receving after front meas.\n",  __func__);
-	      return nullptr;
+	      std::fprintf(stderr, "INFO<%s>: no data receving.\n",  __func__);
+	      return 0;
 	    }
-	    else{
-	      std::fprintf(stderr, "ERROR<%s>: timeout error of incomplete data reading after front meas (size = %d)\n", __func__ , size_filled);
-	      break;
-	    }
-	  }
-	  else{
-	    continue;
+	    std::fprintf(stderr, "ERROR<%s>: timeout error of incomplete data reading (size = %d)\n", __func__ , size_filled);
+	    break;
 	  }
 	}
+	continue;
       }
       else{
 	std::fprintf(stderr, "ERROR<%s>: read(...) returns error code %d\n", __func__,  errno);
 	throw;
       }
     }
-    meas_col.resize(size_filled/sizeof(MeasRaw)+1);
-    if(!meas_col.back().isEndMeasRaw()){
-      	std::fprintf(stderr, "ERROR<%s>: the last pack is not the endMeasRaw\n", __func__);
-	for(const auto& mr : meas_col){
-	  std::fprintf(stdout, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
-	}
-      	std::fprintf(stderr, "ERROR<%s>: \n number of MeasRaw: %d\n", __func__, meas_col.size());	
-	throw;
-    }
-    
-    auto df = std::make_shared<DataFrame>(std::move(meas_col));
-    return df;
-  }
 
-  
+    if(size_filled){
+      int measN=0;
+      std::vector<uint32_t> vfrontN;
+      std::vector<uint32_t> vendN;
+      std::fprintf(stdout, "\nframe %d:\n", dfN);
+      for(const auto &mr: meas_col){
+	if(mr.isFrontMeasRaw()){
+	  vfrontN.push_back(measN);
+	}
+	else if(mr.isEndMeasRaw()){
+	  vendN.push_back(measN);
+	}
+	// if( (measN*sizeof(MeasRaw)<size_filled) && mr.data.raw64){
+	//   std::fprintf(stdout, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
+	// }
+	if((measN*sizeof(MeasRaw)<size_filled)){
+	  measN++;
+	}
+      }
+      
+      std::fprintf(stdout, "\nframe %d has %d measraw\n\n", dfN, measN);
+      for(const auto &fN: vfrontN){
+	std::fprintf(stdout, "front meas at position %d\n", fN);
+      }
+      for(const auto &eN: vendN){
+	std::fprintf(stdout, "end meas at position %d\n", eN);
+      }
+    }
+    return size_filled;
+  }
 }
 
 
@@ -527,56 +439,46 @@ int main(int argc, char *argv[]) {
   fut_async_watch = std::async(std::launch::async, &AsyncWatchDog);
   std::chrono::system_clock::time_point tp_timeout;
   uint32_t dfN=0;
+  std::chrono::system_clock::time_point tp_readtest_timeout;
+  char* buffer[8*2048];
+  size_t readback_len= 0;
   while(!g_done){
     if(exitTimeSecond && std::chrono::system_clock::now() > tp_timeout_exit){
       std::fprintf(stdout, "run %d seconds, nornal exit\n", exitTimeSecond);
       break;
     }
-    if(1){
-      auto df = readdf(fd_rx, std::chrono::seconds(1));
-      if(!df){
-	std::fprintf(stdout, "Data reveving timeout\n");
-	continue;
+
+    if(0){
+      auto a_readback_len= read(fd_rx, buffer, 8*2048);
+      if(a_readback_len>0){
+	readback_len += a_readback_len;
       }
-      std::fprintf(stdout, "\nframe %d:\n", dfN);
-      if(do_formatPrint){
-	df->Print(std::cout, 0);
-	std::cout<<std::endl<<std::flush;
-      }
-      if(do_rawPrint){
-	for(const auto& mr : df->m_measraw_col){
-	  std::fprintf(stdout, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
-	}
-	std::fprintf(stdout, "\n");
-	std::fflush(stdout);
-      }
-      if(format_ofs.is_open()){
-       	df->Print(format_ofs, 0);
-      }
-      if(raw_fp){
-	for(const auto& mr : df->m_measraw_col){
-	  std::fprintf(raw_fp, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
-	}
-	std::fprintf(raw_fp, "\n");
-      }
+      continue;
     }
-    else{
-      auto meas = readMeasRaw(fd_rx, tp_timeout, std::chrono::seconds(1));    
-      if(meas==0){
-	std::fprintf(stdout, "Data reveving timeout\n");
-	continue;
-      }
-      if(do_formatPrint){
-	std::fprintf(stdout, "FormatData:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
-	// std::fflush(stdout);
-      }
-      if(do_rawPrint){
-	std::fprintf(stdout, "RawData_TCP_RX:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
-	// std::fflush(stdout);
-      }
+    
+    auto re = readtest(fd_rx, tp_readtest_timeout, std::chrono::seconds(1), dfN);
+    if(re==0){
+      std::fprintf(stdout, "Data reveving timeout\n");
+      continue;
     }
+    // std::fprintf(stdout, "\nframe %d:\n", dfN);
+    // if(do_rawPrint){
+    //   for(const auto& mr : df->m_measraw_col){
+    // 	std::fprintf(stdout, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
+    //   }
+    //   std::fprintf(stdout, "\n");
+    //   std::fflush(stdout);
+    // }
+    // if(raw_fp){
+    //   for(const auto& mr : df->m_measraw_col){
+    // 	std::fprintf(raw_fp, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
+    //   }
+    //   std::fprintf(raw_fp, "\n");
+    // }    
     dfN++;
   }
+
+  std::fprintf(stdout, "\n this run gets data size %d bytes, %d word32,  %d frames \n\n",  readback_len, readback_len/4, readback_len/(2048*8));
   
   close(fd_rx);
   if(raw_fp){

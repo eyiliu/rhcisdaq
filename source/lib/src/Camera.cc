@@ -45,9 +45,11 @@ void Camera::fw_trigger(){
 void Camera::fw_start(){
   if(!m_fw) return;
   info_print( " fw starting \n");
+  m_fw->SetFirmwareRegister("SCAN_START", 0);
+  m_fw->SetFirmwareRegister("SCAN_STOP", 0);
   m_fw->SetFirmwareRegister("SCAN_COUNT_MODE", 2); //continue mode 
   //m_fw->SetFirmwareRegister("SCAN_COUNT_MODE", 1); //counting mode 
-  m_fw->SetFirmwareRegister("SCAN_FRAMES_N", 100);//1 frame per start
+  m_fw->SetFirmwareRegister("SCAN_FRAMES_N", 1);//1 frame per start
   m_fw->SetFirmwareRegister("SCAN_FRAME_TYPE", 1); //normal type  
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
   m_fw->SetFirmwareRegister("SCAN_START", 1);
@@ -59,6 +61,7 @@ void Camera::fw_stop(){
   if(!m_fw) return;
   info_print(" fw stopping \n");
   m_fw->SetFirmwareRegister("SCAN_STOP", 1);
+  m_fw->SetFirmwareRegister("SCAN_START", 0);
   info_print(" fw stop done\n");
 }
 
@@ -84,6 +87,8 @@ void Camera::fw_init(){
   m_fw->SetFirmwareRegister("SCAN_COUNT_MODE", 1); //counting mode 
   m_fw->SetFirmwareRegister("SCAN_FRAMES_N", 1);//1 frame per start
   m_fw->SetFirmwareRegister("SCAN_FRAME_TYPE", 1); //normal type  
+  m_fw->SetFirmwareRegister("SCAN_STOP", 0); //
+  m_fw->SetFirmwareRegister("SCAN_START", 0); //  
   info_print("fw init done\n");
 }
 

@@ -35,7 +35,7 @@ DataFrame::DataFrame(std::vector<MeasRaw>&& meas_col)
   
   fromMeasRaws(m_measraw_col);
 
-  fillJsdoc();  
+  //fillJsdoc();  
 }
 
 

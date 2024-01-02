@@ -365,7 +365,7 @@ struct DummyDump{
 	    adc = v;
 	    pixTree->Fill();	    
 	  }
-	  pixTree->Write();
+	  pixTree->Write("tree_pixel",TObject::kOverwrite);
 	}
 	// ev_front->Print(std::cout,0);
 	cam->PopFront();

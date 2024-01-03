@@ -14,6 +14,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+
+#include "TFile.h"
+#include "TTree.h"
+
+
 #include "getopt.h"
 #include "DataFrame.hh"
 
@@ -30,6 +35,53 @@ using std::size_t;
 
 #define debug_print(fmt, ...)                                           \
   do { if (DEBUG_PRINT) std::fprintf(stdout, fmt, ##__VA_ARGS__); } while (0)
+
+
+
+
+TFile* tfile_createopen(const std::string& strFilePath){
+  TFile *tf = nullptr;
+  if(strFilePath.empty()){
+    std::fprintf(stderr, "file path is not set\n\n");
+    throw;
+  }
+  std::filesystem::path filepath(strFilePath);
+  std::filesystem::path path_dir_output = std::filesystem::absolute(filepath).parent_path();
+  std::filesystem::file_status st_dir_output = std::filesystem::status(path_dir_output);
+  if (!std::filesystem::exists(st_dir_output)) {
+    std::fprintf(stdout, "Output folder does not exist: %s\n\n",
+		 path_dir_output.c_str());
+    std::filesystem::file_status st_parent = std::filesystem::status(path_dir_output.parent_path());
+    if (std::filesystem::exists(st_parent) &&
+	std::filesystem::is_directory(st_parent)) {
+      if (std::filesystem::create_directory(path_dir_output)) {
+	std::fprintf(stdout, "Create output folder: %s\n\n", path_dir_output.c_str());
+      } else {
+	std::fprintf(stderr, "Unable to create folder: %s\n\n", path_dir_output.c_str());
+	throw;
+      }
+    } else {
+      std::fprintf(stderr, "Unable to create folder: %s\n\n", path_dir_output.c_str());
+      throw;
+    }
+  }
+
+  std::filesystem::file_status st_file = std::filesystem::status(filepath);
+  if (std::filesystem::exists(st_file)) {
+    std::fprintf(stdout, "WARNING: File < %s > exists. Recreate\n\n", filepath.c_str());
+  }
+
+  tf = TFile::Open(filepath.c_str(),"recreate");
+  // tf = TFile::Open("data.root","recreate");
+  if (!tf) {
+    std::fprintf(stderr, "File opening failed: %s \n\n", filepath.c_str());
+    throw;
+  }
+  else{
+    std::fprintf(stdout, "File opening sucess: %s \n\n", filepath.c_str());
+  }
+  return tf;
+}
 
 
 std::FILE* createfile_and_open(std::filesystem::path filepath){
@@ -374,6 +426,7 @@ static const std::string help_usage = R"(
 Usage:
   -help                        help message
   -verbose                     verbose flag
+  -rootFile      <path>        path of ROOT TTree format file to save
   -rawPrint                    print data by hex format in terminal
   -rawFile        <path>       path of raw file to save
   -formatPrint                 print data by json format in terminal
@@ -407,7 +460,7 @@ int main(int argc, char *argv[]) {
 
   std::string rawFilePath;
   std::string formatFilePath;
-  std::string ipAddressStr;
+  std::string rootFilePath;
   int exitTimeSecond = 30;
   bool do_rawPrint = false;
   bool do_formatPrint = false;
@@ -416,6 +469,7 @@ int main(int argc, char *argv[]) {
   {////////////getopt begin//////////////////
     struct option longopts[] = {{"help",      no_argument, NULL, 'h'},//option -W is reserved by getopt
                                 {"verbose",   no_argument, NULL, 'v'},//val
+                                {"rootFile",   required_argument, NULL, 'r'},
                                 {"rawPrint",  no_argument, NULL, 's'},
                                 {"rawFile",   required_argument, NULL, 'f'},
                                 {"formatPrint",   required_argument, NULL, 'S'},
@@ -441,6 +495,9 @@ int main(int argc, char *argv[]) {
         break;
       case 'f':
         rawFilePath = optarg;
+        break;
+      case 'r':
+        rootFilePath = optarg;
         break;
       case 's':
         do_rawPrint = true;
@@ -518,6 +575,28 @@ int main(int argc, char *argv[]) {
   }
 
 
+
+  TFile* tfx = nullptr;
+  TTree* pixTree = nullptr;
+  uint32_t frameN;
+  uint8_t colN;
+  uint8_t rowN;
+  uint16_t adc;
+  if(!rootFilePath.empty()){ 
+    tfx = tfile_createopen(rootFilePath);
+    if(tfx){
+      pixTree = tfx->Get<TTree>("tree_pixel");
+      if(!pixTree){
+	pixTree = new TTree("tree_pixel","tree_pixel");
+	// pixTree->SetDirectory(tf);
+      }
+    }
+    pixTree->Branch("frameN", &frameN);
+    pixTree->Branch("colN", &colN);
+    pixTree->Branch("rowN", &rowN);
+    pixTree->Branch("adc", &adc);
+  }
+
   std::filesystem::path fsp_axidmard("/dev/axidmard");
   std::fprintf(stdout, " connecting to %s\n", fsp_axidmard.c_str());
   if (!std::filesystem::exists(std::filesystem::status(fsp_axidmard))){
@@ -543,48 +622,42 @@ int main(int argc, char *argv[]) {
       std::fprintf(stdout, "run %d seconds, nornal exit\n", exitTimeSecond);
       break;
     }
-    if(1){
-      auto df = readdf(fd_rx, std::chrono::seconds(1));
-      if(!df){
-	std::fprintf(stdout, "Data reveving timeout\n");
-	continue;
-      }
-      std::fprintf(stdout, "\nframe %d:\n", dfN);
-      if(do_formatPrint){
-	df->Print(std::cout, 0);
-	std::cout<<std::endl<<std::flush;
-      }
-      if(do_rawPrint){
-	for(const auto& mr : df->m_measraw_col){
-	  std::fprintf(stdout, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
-	}
-	std::fprintf(stdout, "\n");
-	std::fflush(stdout);
-      }
-      if(format_ofs.is_open()){
-       	df->Print(format_ofs, 0);
-      }
-      if(raw_fp){
-	for(const auto& mr : df->m_measraw_col){
-	  std::fprintf(raw_fp, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
-	}
-	std::fprintf(raw_fp, "\n");
-      }
+    auto df = readdf(fd_rx, std::chrono::seconds(1));
+    if(!df){
+      std::fprintf(stdout, "Data reveving timeout\n");
+      continue;
     }
-    else{
-      auto meas = readMeasRaw(fd_rx, tp_timeout, std::chrono::seconds(1));    
-      if(meas==0){
-	std::fprintf(stdout, "Data reveving timeout\n");
-	continue;
+    std::fprintf(stdout, "\nframe %d:\n", dfN);
+    if(do_formatPrint){
+      df->Print(std::cout, 0);
+      std::cout<<std::endl<<std::flush;
+    }
+    if(pixTree){
+      for(const auto& [rc,v]: df->m_map_pos_adc){
+	frameN = dfN;
+	rowN= rc.first;
+	colN = rc.second;
+	adc = v;
+	pixTree->Fill();
       }
-      if(do_formatPrint){
-	std::fprintf(stdout, "FormatData:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
-	// std::fflush(stdout);
+      pixTree->Write("tree_pixel",TObject::kOverwrite);
+    }
+
+    if(do_rawPrint){
+      for(const auto& mr : df->m_measraw_col){
+	std::fprintf(stdout, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
       }
-      if(do_rawPrint){
-	std::fprintf(stdout, "RawData_TCP_RX:\n%s\n", binToHexString((char*)(meas.data.raw8),sizeof(meas.data)).c_str());
-	// std::fflush(stdout);
+      std::fprintf(stdout, "\n");
+      std::fflush(stdout);
+    }
+    if(format_ofs.is_open()){
+      df->Print(format_ofs, 0);
+    }
+    if(raw_fp){
+      for(const auto& mr : df->m_measraw_col){
+	std::fprintf(raw_fp, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
       }
+      std::fprintf(raw_fp, "\n");
     }
     dfN++;
   }
@@ -597,11 +670,16 @@ int main(int argc, char *argv[]) {
   if(format_ofs.is_open()){
     format_ofs.close();
   }
-
+  if(tfx){
+    tfx->Close();
+    delete tfx;
+    tfx=nullptr;
+    pixTree=nullptr;
+  }
+  
   g_done= 1;
   if(fut_async_watch.valid())
     fut_async_watch.get();
   
   return 0;
 }
-

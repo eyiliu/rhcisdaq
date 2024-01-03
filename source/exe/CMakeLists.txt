@@ -5,7 +5,7 @@ add_executable(rhcisctrl regctrl_main.cc)
 target_link_libraries(rhcisctrl PRIVATE datactrl-fe mycommon stdc++fs ROOT::RIO ROOT::Tree)
 
 add_executable(rhcisdump dmarx_dump.cc)
-target_link_libraries(rhcisdump PRIVATE datactrl-fe mycommon stdc++fs)
+target_link_libraries(rhcisdump PRIVATE datactrl-fe mycommon stdc++fs ROOT::RIO ROOT::Tree)
 
 
 add_executable(rhcisdump_test dmarx_test.cc)

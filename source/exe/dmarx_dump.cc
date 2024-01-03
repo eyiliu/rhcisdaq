@@ -270,7 +270,7 @@ namespace{
 	meas_col.reserve(64*32);
       }
       meas_col.push_back(meas);
-    
+
       if(meas.isEndMeasRaw()){
 	if(meas_col.size()!=64*32){
 	  std::fprintf(stderr, "ERROR: reach end package at size %d \n", meas_col.size());
@@ -289,6 +289,7 @@ namespace{
     // std::fprintf(stderr, "-");
     std::chrono::system_clock::time_point tp_timeout_idel;
     MeasRaw frontMeas;
+    uint32_t skipN=0;
     while(1){
       MeasRaw aMeas = readMeasRaw(fd_rx, tp_timeout_idel, timeout_idel);
       if(aMeas.isFrontMeasRaw()){
@@ -300,9 +301,13 @@ namespace{
 	return nullptr;
       }
       else{ //none front meas;
-	std::fprintf(stderr, "INFO<%s>: skip none front meas:  %s\n",  __func__, binToHexString((char*)(aMeas.data.raw8),sizeof(aMeas.data)).c_str());
+	// std::fprintf(stderr, "INFO<%s>: skip none front meas:  %s\n",  __func__, binToHexString((char*)(aMeas.data.raw8),sizeof(aMeas.data)).c_str());
+	skipN++;
 	continue;
       }
+    }
+    if(skipN){
+      std::fprintf(stderr, "INFO<%s>: skip none front meas size:  %d\n",  __func__, skipN);
     }
     
     const size_t packNumInFrame = 2048;
@@ -350,18 +355,17 @@ namespace{
     }
     meas_col.resize(size_filled/sizeof(MeasRaw)+1);
     if(!meas_col.back().isEndMeasRaw()){
-      	std::fprintf(stderr, "ERROR<%s>: the last pack is not the endMeasRaw\n", __func__);
-	for(const auto& mr : meas_col){
-	  std::fprintf(stdout, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
-	}
-      	std::fprintf(stderr, "ERROR<%s>: \n number of MeasRaw: %d\n", __func__, meas_col.size());	
-	throw;
+      	std::fprintf(stderr, "\n\nERROR<%s>: the last pack is not the endMeasRaw\n\n", __func__);
+	// for(const auto& mr : meas_col){
+	//   std::fprintf(stdout, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
+	// }
+      	std::fprintf(stderr, "\n\nERROR<%s>: \n number of MeasRaw: %d. recent broken dataframe is dropped\n\n", __func__, meas_col.size()); 
+	return nullptr;
     }
     
     auto df = std::make_shared<DataFrame>(std::move(meas_col));
     return df;
   }
-
   
 }
 
@@ -512,9 +516,16 @@ int main(int argc, char *argv[]) {
     test_filepath(formatFilePath);
     format_ofs.open(formatFilePath.c_str(), std::ofstream::out | std::ofstream::app);
   }
-  
-  std::fprintf(stdout, " connecting to %s\n", "/dev/axidmard");
-  int fd_rx = open("/dev/axidmard", O_RDONLY | O_NONBLOCK);
+
+
+  std::filesystem::path fsp_axidmard("/dev/axidmard");
+  std::fprintf(stdout, " connecting to %s\n", fsp_axidmard.c_str());
+  if (!std::filesystem::exists(std::filesystem::status(fsp_axidmard))){
+    std::fprintf(stderr, "path %s does not exist. connection fail\n", fsp_axidmard.c_str());
+    std::fprintf(stderr, "check if fpga-firmware and kernel-moulde is loaded\n", fsp_axidmard.c_str());
+    throw;
+  }
+  int fd_rx = open(fsp_axidmard.c_str(), O_RDONLY | O_NONBLOCK);
   if(!fd_rx){
     std::fprintf(stdout, " connection fail\n");
     throw;

@@ -131,8 +131,20 @@ example:
 
 struct DummyDump;
 
-int main(int argc, char **argv){
+void check(){
+  std::filesystem::path fsfp_axidmard("/dev/axidmard");
+  std::fprintf(stdout, "checking path %s\n", fsfp_axidmard.c_str());
+  if (!std::filesystem::exists(std::filesystem::status(fsfp_axidmard))){
+    std::fprintf(stderr, "path %s does not exist.\n", fsfp_axidmard.c_str());
+    std::fprintf(stderr, "please make sure if fpga-firmware and kernel-moulde is loaded\n", fsfp_axidmard.c_str());
+    throw;
+  }
+  std::fprintf(stdout, "path %s is checked\n", fsfp_axidmard.c_str());
+}
 
+int main(int argc, char **argv){
+  check();
+  
   std::string c_opt;
   int c;
   while ( (c = getopt(argc, argv, "h")) != -1) {

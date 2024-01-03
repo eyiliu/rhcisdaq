@@ -108,10 +108,8 @@ bool test_filepath(std::filesystem::path filepath){
     std::fprintf(stderr, "File < %s > exists.\n\n", filepath.c_str());
     throw;
   }
-
   return true;
 }
-
 
 
 
@@ -420,13 +418,20 @@ int main(int argc, char *argv[]) {
   }
 
   std::ofstream format_ofs;
-  if(!formatFilePath.empty()){   
+  if(!formatFilePath.empty()){
     test_filepath(formatFilePath);
     format_ofs.open(formatFilePath.c_str(), std::ofstream::out | std::ofstream::app);
   }
+
+  std::filesystem::path fsfp_axidmard("/dev/axidmard");
+  std::fprintf(stdout, " connecting to %s\n", fsfp_axidmard.c_str());
+  if (!std::filesystem::exists(std::filesystem::status(fsfp_axidmard))){
+    std::fprintf(stderr, "path %s does not exist. connection fail\n", fsfp_axidmard.c_str());
+    std::fprintf(stderr, "check if fpga-firmware and kernel-moulde is loaded\n", fsfp_axidmard.c_str());
+    throw;
+  }
   
-  std::fprintf(stdout, " connecting to %s\n", "/dev/axidmard");
-  int fd_rx = open("/dev/axidmard", O_RDONLY | O_NONBLOCK);
+  int fd_rx = open(fsfp_axidmard.c_str(), O_RDONLY | O_NONBLOCK);
   if(!fd_rx){
     std::fprintf(stdout, " connection fail\n");
     throw;

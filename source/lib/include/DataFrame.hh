@@ -18,18 +18,21 @@
 #define FRONT_MEASRAW_32 (0x5500383c)
 #define END_MEASRAW_32 (0x553f0307)
 
-
 struct MeasRaw;
 struct MeasPixel;
 
 
 struct MeasPixel{
-  uint8_t row;
-  uint8_t col;
+  struct colrow{
+    uint8_t row;
+    uint8_t col;
+  } pos;
   uint16_t adc;
-
   inline bool operator<(const MeasPixel &rh) const{
-    return static_cast<uint16_t>(row)<<8+col < static_cast<uint16_t>(rh.row)<<8+col;
+    return *(reinterpret_cast<const uint16_t*>(&pos)) < *(reinterpret_cast<const uint16_t*>(&(rh.pos)));
+  };
+  inline void check_static(){
+    static_assert (sizeof(pos) == 2, "wrong size");
   }
 };
 
@@ -74,8 +77,8 @@ struct MeasRaw{
     meas.data.raw64>>8;
   }
 
-  inline MeasPixel getPixel0() const {return {brow(),col0(),adc0()};}
-  inline MeasPixel getPixel1() const {return {brow(),col1(),adc1()};}
+  inline MeasPixel getPixel0() const {return {{brow(),col0()},adc0()};}
+  inline MeasPixel getPixel1() const {return {{brow(),col1()},adc1()};}
 
   inline bool isFrontMeasRaw() const{
     return (data.raw32[0]==FRONT_MEASRAW_32);
@@ -108,7 +111,7 @@ public:
 
   std::vector<MeasRaw> m_measraw_col;
   std::vector<MeasPixel> m_pixel_col;
-
+  
   std::map<std::pair<uint8_t, uint8_t>, int16_t> m_map_pos_adc;
   std::string m_raw;
   

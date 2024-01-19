@@ -579,9 +579,12 @@ int main(int argc, char *argv[]) {
   TFile* tfx = nullptr;
   TTree* pixTree = nullptr;
   uint32_t frameN;
-  uint8_t colN;
-  uint8_t rowN;
-  uint16_t adc;
+
+  MeasPixel pix;
+
+  //uint8_t colN;
+  // uint8_t rowN;
+  //uint16_t adc;
   if(!rootFilePath.empty()){ 
     tfx = tfile_createopen(rootFilePath);
     if(tfx){
@@ -592,9 +595,9 @@ int main(int argc, char *argv[]) {
       }
     }
     pixTree->Branch("frameN", &frameN);
-    pixTree->Branch("colN", &colN);
-    pixTree->Branch("rowN", &rowN);
-    pixTree->Branch("adc", &adc);
+    pixTree->Branch("colN", &(pix.pos.col));
+    pixTree->Branch("rowN", &(pix.pos.row));
+    pixTree->Branch("adc", &(pix.adc));
   }
 
   std::filesystem::path fsp_axidmard("/dev/axidmard");
@@ -633,11 +636,9 @@ int main(int argc, char *argv[]) {
       std::cout<<std::endl<<std::flush;
     }
     if(pixTree){
-      for(const auto& [rc,v]: df->m_map_pos_adc){
+      for(const auto& p: df->m_pixel_col){
 	frameN = dfN;
-	rowN= rc.first;
-	colN = rc.second;
-	adc = v;
+	pix= p;
 	pixTree->Fill();
       }
       pixTree->Write("tree_pixel",TObject::kOverwrite);
@@ -654,9 +655,12 @@ int main(int argc, char *argv[]) {
       df->Print(format_ofs, 0);
     }
     if(raw_fp){
-      for(const auto& mr : df->m_measraw_col){
-	std::fprintf(raw_fp, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
-      }
+      std::fprintf(raw_fp, "#%lu \n", dfN);
+      std::fwrite(df->m_pixel_col.data(),sizeof(df->m_pixel_col[0]), df->m_pixel_col.size(), raw_fp);
+      // for(const auto& p : df->m_pixel_col){
+      // 	std::fprintf(raw_fp, "%u %u |", p.pos, p.adc);
+      // 	//std::fprintf(raw_fp, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
+      // }
       std::fprintf(raw_fp, "\n");
     }
     dfN++;

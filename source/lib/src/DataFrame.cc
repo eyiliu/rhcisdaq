@@ -45,16 +45,28 @@ void DataFrame::fromRaw(const std::string &raw){
     const uint8_t* p_raw = p_raw_beg;
 }
 
+
+
 void DataFrame::fromMeasRaws(const std::vector<MeasRaw>& meas_col){
+  // for(auto& mr: meas_col){
+  //   auto pix0= mr.getPixel0();
+  //   auto pix1= mr.getPixel1();
+  //   m_map_pos_adc[{pix0.row, pix0.col}] = pix0.adc;
+  //   m_map_pos_adc[{pix1.row, pix1.col}] = pix1.adc;
+
+  //   m_pixel_col.push_back(pix0);
+  //   m_pixel_col.push_back(pix1);
+  // } 
+  m_pixel_col.reserve(64*64);
   for(auto& mr: meas_col){
     auto pix0= mr.getPixel0();
     auto pix1= mr.getPixel1();
-    m_map_pos_adc[{pix0.row, pix0.col}] = pix0.adc;
-    m_map_pos_adc[{pix1.row, pix1.col}] = pix1.adc;
-
     m_pixel_col.push_back(pix0);
     m_pixel_col.push_back(pix1);
-  } 
+
+  }
+
+
 }
 
 void DataFrame::Print(std::ostream& os, size_t ws) const

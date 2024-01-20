@@ -38,7 +38,6 @@ using std::size_t;
 
 
 
-
 TFile* tfile_createopen(const std::string& strFilePath){
   TFile *tf = nullptr;
   if(strFilePath.empty()){
@@ -422,38 +421,36 @@ namespace{
 }
 
 
+
+
+
+
+
+
+
+
 static const std::string help_usage = R"(
 Usage:
   -help                        help message
   -verbose                     verbose flag
   -rootFile      <path>        path of ROOT TTree format file to save
-  -rawPrint                    print data by hex format in terminal
-  -rawFile        <path>       path of raw file to save
-  -formatPrint                 print data by json format in terminal
-  -formatFile     <path>       path of json format file to save
+  -rawFile        <path>       path of raw file to save 
+  -inputFile      <path>       path of input file (rawfile) to simulate dma device stream
   -exitTime       <n>          exit after n seconds (0=NoLimit, default 30)
 
 examples:
-#1. save raw data and print
-./rhcisdump -rawPrint -rawFile test.dat
+#1. save raw data and exit after 60 second
+./rhcisdump -rawFile rawbuffer.data -exitTime 60
 
-#2. save raw data only
-./rhcisdump -rawFile test.dat
+#2. exit after 60, nothing is saved on disk.
+./rhcisdump -exitTime 60
 
-#3. print raw data only
-./rhcisdump -rawPrint
-
-#4. print json format data only
-./rhcisdump -formatPrint
-
-#5. print json format data and save format data
-./rhcisdump -formatPrint -formateFile testfile.json
-
-#6. print, exit after 60 seconds
-./rhcisdump -rawPrint -exitTime 60
-
+#3. convert input rawfile to root file, exit after 100 second. 
+#   inputfile is read in the same way as dma device data stream
+./rhcisdump -inputFile rawbuffer.data  decoded.root -exitTime 100
 
 )";
+
 
 int main(int argc, char *argv[]) {
   signal(SIGINT, [](int){g_done+=1;});
@@ -461,6 +458,7 @@ int main(int argc, char *argv[]) {
   std::string rawFilePath;
   std::string formatFilePath;
   std::string rootFilePath;
+  std::string inputFilePath;
   int exitTimeSecond = 30;
   bool do_rawPrint = false;
   bool do_formatPrint = false;
@@ -474,6 +472,7 @@ int main(int argc, char *argv[]) {
                                 {"rawFile",   required_argument, NULL, 'f'},
                                 {"formatPrint",   required_argument, NULL, 'S'},
                                 {"formatFile",   required_argument, NULL, 'F'},
+                                {"inputFile",   required_argument, NULL, 'i'},
                                 {"exitTime",  required_argument, NULL, 'e'},
                                 {0, 0, 0, 0}};
 
@@ -498,6 +497,9 @@ int main(int argc, char *argv[]) {
         break;
       case 'r':
         rootFilePath = optarg;
+        break;
+      case 'i':
+        inputFilePath = optarg;
         break;
       case 's':
         do_rawPrint = true;
@@ -600,20 +602,39 @@ int main(int argc, char *argv[]) {
     pixTree->Branch("adc", &(pix.adc));
   }
 
-  std::filesystem::path fsp_axidmard("/dev/axidmard");
-  std::fprintf(stdout, " connecting to %s\n", fsp_axidmard.c_str());
-  if (!std::filesystem::exists(std::filesystem::status(fsp_axidmard))){
-    std::fprintf(stderr, "path %s does not exist. connection fail\n", fsp_axidmard.c_str());
-    std::fprintf(stderr, "check if fpga-firmware and kernel-moulde is loaded\n", fsp_axidmard.c_str());
-    throw;
-  }
-  int fd_rx = open(fsp_axidmard.c_str(), O_RDONLY | O_NONBLOCK);
-  if(!fd_rx){
-    std::fprintf(stdout, " connection fail\n");
-    throw;
-  }
-  std::fprintf(stdout, " connected\n");
+
+  int fd_rx = 0;
+  if(!inputFilePath.empty()){
+    std::filesystem::path fsp_inputfile(inputFilePath);
+    std::fprintf(stdout, " openning file %s\n", fsp_inputfile.c_str());
+    if (!std::filesystem::exists(std::filesystem::status(fsp_inputfile))){
+      std::fprintf(stderr, "path %s does not exist. open file fail\n", fsp_inputfile.c_str());
+      throw;
+    }
   
+    fd_rx = open(fsp_inputfile.c_str(), O_RDONLY | O_NONBLOCK);
+    if(!fd_rx){
+      std::fprintf(stdout, " inputfile open fail\n");
+      throw;
+    }
+    std::fprintf(stdout, " inputfile  openned\n");
+  }
+  else{
+    std::filesystem::path fsp_axidmard("/dev/axidmard");
+    std::fprintf(stdout, " connecting to %s\n", fsp_axidmard.c_str());
+    if (!std::filesystem::exists(std::filesystem::status(fsp_axidmard))){
+      std::fprintf(stderr, "path %s does not exist. connection fail\n", fsp_axidmard.c_str());
+      std::fprintf(stderr, "check if fpga-firmware and kernel-moulde is loaded\n", fsp_axidmard.c_str());
+      throw;
+    }
+  
+    fd_rx = open(fsp_axidmard.c_str(), O_RDONLY | O_NONBLOCK);
+    if(!fd_rx){
+      std::fprintf(stdout, " connection fail\n");
+      throw;
+    }
+    std::fprintf(stdout, " connected\n");
+  }
   std::chrono::system_clock::time_point tp_timeout_exit  = std::chrono::system_clock::now() + std::chrono::seconds(exitTimeSecond);
 
   std::future<uint64_t> fut_async_watch;
@@ -655,13 +676,13 @@ int main(int argc, char *argv[]) {
       df->Print(format_ofs, 0);
     }
     if(raw_fp){
-      std::fprintf(raw_fp, "#%lu \n", dfN);
-      std::fwrite(df->m_pixel_col.data(),sizeof(df->m_pixel_col[0]), df->m_pixel_col.size(), raw_fp);
+      // std::fprintf(raw_fp, "#%lu \n", dfN);
+      std::fwrite(df->m_measraw_col.data(),sizeof(df->m_measraw_col[0]), df->m_measraw_col.size(), raw_fp);
       // for(const auto& p : df->m_pixel_col){
       // 	std::fprintf(raw_fp, "%u %u |", p.pos, p.adc);
       // 	//std::fprintf(raw_fp, "%s    ", binToHexString((char*)(mr.data.raw8),sizeof(mr.data)).c_str());
       // }
-      std::fprintf(raw_fp, "\n");
+      // std::fprintf(raw_fp, "\n");
     }
     dfN++;
   }
